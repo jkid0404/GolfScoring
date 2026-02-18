@@ -5,10 +5,14 @@ import './Leaderboard.css';
 
 const Leaderboard = ({ tournament, onBack }) => {
     const [leaderboard, setLeaderboard] = useState([]);
+    const [skinsDetails, setSkinsDetails] = useState([]);
     const [tournamentData, setTournamentData] = useState(tournament);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [showGross, setShowGross] = useState(true);
+    const [showNet, setShowNet] = useState(true);
+    const [showSkins, setShowSkins] = useState(true);
 
     useEffect(() => {
         loadLeaderboard();
@@ -47,7 +51,17 @@ const Leaderboard = ({ tournament, onBack }) => {
         try {
             setLoading(true);
             const data = await getLeaderboard(tournament.id);
-            setLeaderboard(data);
+
+            // Handle new response format with players and skinsDetails
+            if (data.players && data.skinsDetails) {
+                setLeaderboard(data.players);
+                setSkinsDetails(data.skinsDetails);
+            } else {
+                // Fallback for old format
+                setLeaderboard(data);
+                setSkinsDetails([]);
+            }
+
             setError(null);
         } catch (err) {
             console.error('Error loading leaderboard:', err);
@@ -126,6 +140,24 @@ const Leaderboard = ({ tournament, onBack }) => {
         });
     };
 
+    const formatSkinsHole = (holeData) => {
+        if (!holeData) return '-';
+
+        if (holeData.status === 'unplayed') {
+            return '-';
+        }
+
+        if (holeData.status === 'won') {
+            return `${holeData.winner} - ${holeData.scoreName}`;
+        }
+
+        if (holeData.status === 'tied') {
+            return `${holeData.scoreName} (${holeData.tiedCount} tied)`;
+        }
+
+        return '-';
+    };
+
     if (loading && leaderboard.length === 0) {
         return (
             <div className="leaderboard">
@@ -164,10 +196,13 @@ const Leaderboard = ({ tournament, onBack }) => {
 
             {error && <div className="error-message">{error}</div>}
 
-            <div className="leaderboard-content">
+            <div className="leaderboard-content-three">
                 <div className="leaderboard-section">
-                    <h3>Gross Leaderboard</h3>
-                    <div className="leaderboard-table">
+                    <h3 onClick={() => setShowGross(!showGross)} className="collapsible-header">
+                        <span>{showGross ? '▼' : '▶'}</span> Gross Leaderboard
+                    </h3>
+                    {showGross && (
+                        <div className="leaderboard-table">
                         <div className="table-header">
                             <div className="rank">Pos</div>
                             <div className="player-name">Player</div>
@@ -193,12 +228,16 @@ const Leaderboard = ({ tournament, onBack }) => {
                                 </div>
                             );
                         })}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="leaderboard-section">
-                    <h3>Net Leaderboard</h3>
-                    <div className="leaderboard-table">
+                    <h3 onClick={() => setShowNet(!showNet)} className="collapsible-header">
+                        <span>{showNet ? '▼' : '▶'}</span> Net Leaderboard
+                    </h3>
+                    {showNet && (
+                        <div className="leaderboard-table">
                         <div className="table-header">
                             <div className="rank">Pos</div>
                             <div className="player-name">Player</div>
@@ -224,7 +263,28 @@ const Leaderboard = ({ tournament, onBack }) => {
                                 </div>
                             );
                         })}
-                    </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="leaderboard-section skins-section">
+                    <h3 onClick={() => setShowSkins(!showSkins)} className="collapsible-header">
+                        <span>{showSkins ? '▼' : '▶'}</span> Skins
+                    </h3>
+                    {showSkins && (
+                        <div className="skins-table">
+                        <div className="skins-header">
+                            <div className="skins-hole">Hole</div>
+                            <div className="skins-result">Result</div>
+                        </div>
+                        {skinsDetails.map((holeData) => (
+                            <div key={`skin-hole-${holeData.hole}`} className="skins-row">
+                                <div className="skins-hole">{holeData.hole}</div>
+                                <div className="skins-result">{formatSkinsHole(holeData)}</div>
+                            </div>
+                        ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
