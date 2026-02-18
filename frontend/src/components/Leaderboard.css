@@ -1,0 +1,141 @@
+.leaderboard {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+}
+
+.status-indicator {
+    font-size: 0.9rem;
+    padding: 5px 10px;
+    border-radius: 4px;
+}
+
+.status-indicator.connected {
+    color: #2ecc71;
+    background-color: #d5f4e6;
+}
+
+.status-indicator.disconnected {
+    color: #e74c3c;
+    background-color: #fadbd8;
+}
+
+.course-name {
+    color: #7f8c8d;
+    font-size: 0.85rem;
+    margin-top: 3px;
+}
+
+.leaderboard-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+}
+
+.leaderboard-section {
+    background: white;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.leaderboard-section h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.3rem;
+    text-align: center;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.leaderboard-table {
+    width: 100%;
+}
+
+.table-header,
+.table-row {
+    display: grid;
+    grid-template-columns: 50px 1fr 100px 60px;
+    gap: 10px;
+    padding: 12px;
+    align-items: center;
+}
+
+.table-header {
+    background-color: #34495e;
+    color: white;
+    font-weight: 600;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.table-header .player-name {
+    color: white;
+}
+
+.table-row {
+    border-bottom: 1px solid #ecf0f1;
+    transition: background-color 0.2s;
+}
+
+.table-row:hover {
+    background-color: #f8f9fa;
+}
+
+.table-row:last-child {
+    border-bottom: none;
+}
+
+.rank {
+    text-align: center;
+    font-weight: 600;
+    color: #3498db;
+    font-size: 1.1rem;
+}
+
+.player-name {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.holes {
+    text-align: center;
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.score-to-par {
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 1024px) {
+    .leaderboard-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .table-header,
+    .table-row {
+        grid-template-columns: 40px 1fr 70px;
+    }
+
+    .holes {
+        display: none;
+    }
+
+    .score-to-par {
+        font-size: 1rem;
+    }
+
+    .leaderboard-section {
+        padding: 15px;
+    }
+}
