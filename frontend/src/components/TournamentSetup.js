@@ -8,6 +8,7 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
     const [showParEditor, setShowParEditor] = useState(false);
     const [selectedTournament, setSelectedTournament] = useState(null);
     const [parValues, setParValues] = useState({});
+    const [handicapIndices, setHandicapIndices] = useState({});
     const [formData, setFormData] = useState({
         name: '',
         date: new Date().toISOString().split('T')[0],
@@ -74,6 +75,14 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
             defaultPars[i] = pars[i] || 4;
         }
         setParValues(defaultPars);
+
+        const handicaps = tournament.handicap_indices || {};
+        const defaultHandicaps = {};
+        for (let i = 1; i <= 18; i++) {
+            defaultHandicaps[i] = handicaps[i] || i;
+        }
+        setHandicapIndices(defaultHandicaps);
+
         setShowParEditor(true);
     };
 
@@ -81,6 +90,13 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
         setParValues({
             ...parValues,
             [hole]: parseInt(value) || 3,
+        });
+    };
+
+    const handleHandicapChange = (hole, value) => {
+        setHandicapIndices({
+            ...handicapIndices,
+            [hole]: parseInt(value) || 1,
         });
     };
 
@@ -95,6 +111,9 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                 date: selectedTournament.date,
                 course_name: selectedTournament.course_name,
                 par_values: parValues,
+                handicap_indices: handicapIndices,
+                course_rating: parseFloat(selectedTournament.course_rating) || 72.0,
+                slope: parseInt(selectedTournament.slope) || 113,
             });
 
             // Update tournament in list
@@ -252,6 +271,37 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                                 />
                             </div>
                         </div>
+
+                        <div className="course-info-grid">
+                            <div className="form-group">
+                                <label htmlFor="courseRating">Course Rating</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    id="courseRating"
+                                    value={selectedTournament?.course_rating || 72.0}
+                                    onChange={(e) => setSelectedTournament({
+                                        ...selectedTournament,
+                                        course_rating: e.target.value
+                                    })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="slope">Slope</label>
+                                <input
+                                    type="number"
+                                    id="slope"
+                                    value={selectedTournament?.slope || 113}
+                                    onChange={(e) => setSelectedTournament({
+                                        ...selectedTournament,
+                                        slope: e.target.value
+                                    })}
+                                />
+                            </div>
+                        </div>
+
+                        <h3>Par Values</h3>
                         <div className="par-grid">
                             {[...Array(18)].map((_, index) => {
                                 const hole = index + 1;
@@ -272,6 +322,25 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
 
                         <div className="par-total">
                             <strong>Total Par: {getTotalPar()}</strong>
+                        </div>
+
+                        <h3>Handicap Indices</h3>
+                        <div className="par-grid">
+                            {[...Array(18)].map((_, index) => {
+                                const hole = index + 1;
+                                return (
+                                    <div key={hole} className="par-input-group">
+                                        <label>Hole {hole}</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="18"
+                                            value={handicapIndices[hole] || hole}
+                                            onChange={(e) => handleHandicapChange(hole, e.target.value)}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
 
                         <div className="form-actions">

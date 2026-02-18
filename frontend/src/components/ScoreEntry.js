@@ -132,6 +132,17 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
         return Object.values(tournament.par_values).reduce((sum, par) => sum + par, 0);
     };
 
+    const getStrokesForHole = (playerHandicap, holeHandicapIndex) => {
+        if (!playerHandicap || !holeHandicapIndex) return 0;
+
+        let strokes = 0;
+        if (playerHandicap >= holeHandicapIndex) strokes++;
+        if (playerHandicap >= 18 + holeHandicapIndex) strokes++;
+        if (playerHandicap >= 36 + holeHandicapIndex) strokes++;
+
+        return strokes;
+    };
+
     const getScoreToPar = (playerId) => {
         const total = getPlayerTotal(playerId);
         const totalPar = getTotalPar();
@@ -249,6 +260,9 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
 
                 <div className="hole-info">
                     <h2>Hole {currentHole}</h2>
+                    {tournament?.handicap_indices && (
+                        <p className="hole-handicap">HCP: {tournament.handicap_indices[currentHole]}</p>
+                    )}
                 </div>
 
                 <button
@@ -279,20 +293,34 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
             </div>
 
             <div className="players-scoring">
-                {group.players.map((player) => (
-                    <div key={player.id} className="player-score-card">
-                        <h3>{player.player_name}</h3>
-                        <input
-                            type="number"
-                            min="1"
-                            max="15"
-                            value={holeScores[player.id] || ''}
-                            onChange={(e) => handleScoreChange(player.id, e.target.value)}
-                            className="score-input"
-                            placeholder="-"
-                        />
-                    </div>
-                ))}
+                {group.players.map((player) => {
+                    const holeHandicapIndex = tournament?.handicap_indices?.[currentHole];
+                    const strokes = getStrokesForHole(player.handicap, holeHandicapIndex);
+
+                    return (
+                        <div key={player.id} className="player-score-card">
+                            <div className="player-name-section">
+                                <h3>{player.player_name}</h3>
+                                {strokes > 0 && (
+                                    <div className="stroke-dots">
+                                        {[...Array(strokes)].map((_, i) => (
+                                            <span key={i} className="dot">•</span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <input
+                                type="number"
+                                min="1"
+                                max="15"
+                                value={holeScores[player.id] || ''}
+                                onChange={(e) => handleScoreChange(player.id, e.target.value)}
+                                className="score-input"
+                                placeholder="-"
+                            />
+                        </div>
+                    );
+                })}
             </div>
 
             <div className="action-buttons">

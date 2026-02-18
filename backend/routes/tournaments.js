@@ -5,22 +5,26 @@ const { runQuery, getQuery, allQuery } = require('../config/database');
 // Create a new tournament
 router.post('/', async (req, res) => {
     try {
-        const { name, date, course_name, par_values } = req.body;
+        const { name, date, course_name, par_values, handicap_indices, course_rating, slope } = req.body;
 
         if (!name || !date) {
             return res.status(400).json({ error: 'Name and date are required' });
         }
 
         const parJson = par_values ? JSON.stringify(par_values) : null;
+        const handicapJson = handicap_indices ? JSON.stringify(handicap_indices) : null;
 
         const result = await runQuery(
-            'INSERT INTO tournaments (name, date, course_name, par_values) VALUES (?, ?, ?, ?)',
-            [name, date, course_name, parJson]
+            'INSERT INTO tournaments (name, date, course_name, par_values, handicap_indices, course_rating, slope) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [name, date, course_name, parJson, handicapJson, course_rating || 72.0, slope || 113]
         );
 
         const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [result.id]);
         if (tournament.par_values) {
             tournament.par_values = JSON.parse(tournament.par_values);
+        }
+        if (tournament.handicap_indices) {
+            tournament.handicap_indices = JSON.parse(tournament.handicap_indices);
         }
         res.status(201).json(tournament);
     } catch (error) {
@@ -42,6 +46,9 @@ router.get('/:id', async (req, res) => {
         if (tournament.par_values) {
             tournament.par_values = JSON.parse(tournament.par_values);
         }
+        if (tournament.handicap_indices) {
+            tournament.handicap_indices = JSON.parse(tournament.handicap_indices);
+        }
 
         res.json(tournament);
     } catch (error) {
@@ -58,6 +65,9 @@ router.get('/', async (req, res) => {
             if (tournament.par_values) {
                 tournament.par_values = JSON.parse(tournament.par_values);
             }
+            if (tournament.handicap_indices) {
+                tournament.handicap_indices = JSON.parse(tournament.handicap_indices);
+            }
         });
         res.json(tournaments);
     } catch (error) {
@@ -70,7 +80,7 @@ router.get('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, date, course_name, par_values } = req.body;
+        const { name, date, course_name, par_values, handicap_indices, course_rating, slope } = req.body;
 
         const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [id]);
         if (!tournament) {
@@ -78,14 +88,18 @@ router.put('/:id', async (req, res) => {
         }
 
         const parJson = par_values ? JSON.stringify(par_values) : tournament.par_values;
+        const handicapJson = handicap_indices ? JSON.stringify(handicap_indices) : tournament.handicap_indices;
 
         await runQuery(
-            'UPDATE tournaments SET name = ?, date = ?, course_name = ?, par_values = ? WHERE id = ?',
+            'UPDATE tournaments SET name = ?, date = ?, course_name = ?, par_values = ?, handicap_indices = ?, course_rating = ?, slope = ? WHERE id = ?',
             [
                 name || tournament.name,
                 date || tournament.date,
                 course_name !== undefined ? course_name : tournament.course_name,
                 parJson,
+                handicapJson,
+                course_rating !== undefined ? course_rating : tournament.course_rating,
+                slope !== undefined ? slope : tournament.slope,
                 id
             ]
         );
@@ -93,6 +107,9 @@ router.put('/:id', async (req, res) => {
         const updatedTournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [id]);
         if (updatedTournament.par_values) {
             updatedTournament.par_values = JSON.parse(updatedTournament.par_values);
+        }
+        if (updatedTournament.handicap_indices) {
+            updatedTournament.handicap_indices = JSON.parse(updatedTournament.handicap_indices);
         }
 
         res.json(updatedTournament);

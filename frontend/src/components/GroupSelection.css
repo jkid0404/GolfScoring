@@ -130,6 +130,34 @@
     transition: background-color 0.2s;
 }
 
+.player-edit-form {
+    display: flex;
+    gap: 10px;
+}
+
+.player-edit-form .edit-input {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    flex: 1;
+}
+
+.player-edit-form .edit-input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.player-edit-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.player-actions {
+    display: flex;
+    gap: 8px;
+}
+
 .player-item:last-child {
     border-bottom: none;
 }
@@ -164,7 +192,7 @@
 }
 
 .add-player-section {
-    padding: 20px;
+    padding: 10px 20px 20px 20px;
     background-color: #f8f9fa;
     border-radius: 8px;
 }

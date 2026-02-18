@@ -108,6 +108,33 @@ const initializeDatabase = (database) => {
                     console.error('Error adding par_values column:', err);
                 }
             });
+
+            // Add handicap_indices column if it doesn't exist (for existing databases)
+            database.run(`
+                ALTER TABLE tournaments ADD COLUMN handicap_indices TEXT DEFAULT '{"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,"11":11,"12":12,"13":13,"14":14,"15":15,"16":16,"17":17,"18":18}'
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding handicap_indices column:', err);
+                }
+            });
+
+            // Add course_rating column if it doesn't exist (for existing databases)
+            database.run(`
+                ALTER TABLE tournaments ADD COLUMN course_rating REAL DEFAULT 72.0
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding course_rating column:', err);
+                }
+            });
+
+            // Add slope column if it doesn't exist (for existing databases)
+            database.run(`
+                ALTER TABLE tournaments ADD COLUMN slope INTEGER DEFAULT 113
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding slope column:', err);
+                }
+            });
         });
     });
 };

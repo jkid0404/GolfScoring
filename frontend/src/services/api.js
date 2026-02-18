@@ -62,6 +62,11 @@ export const getPlayer = async (id) => {
     return response.data;
 };
 
+export const updatePlayer = async (id, playerData) => {
+    const response = await api.put(`/players/${id}`, playerData);
+    return response.data;
+};
+
 export const deletePlayer = async (id) => {
     const response = await api.delete(`/players/${id}`);
     return response.data;

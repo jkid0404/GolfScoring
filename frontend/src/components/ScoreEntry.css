@@ -63,7 +63,14 @@
 .hole-info h2 {
     color: #2c3e50;
     font-size: 2rem;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
+}
+
+.hole-handicap {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin: 0;
 }
 
 .hole-progress {
@@ -156,11 +163,31 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
+.player-name-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
 .player-score-card h3 {
     color: #2c3e50;
     font-size: 1.2rem;
     text-align: center;
     margin: 0;
+}
+
+.stroke-dots {
+    display: flex;
+    gap: 4px;
+    min-height: 16px;
+}
+
+.stroke-dots .dot {
+    color: #3498db;
+    font-size: 1.2rem;
+    line-height: 1;
+    font-weight: bold;
 }
 
 .score-input {

@@ -53,6 +53,34 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Update a player
+router.put('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { player_name, handicap } = req.body;
+
+        const player = await getQuery('SELECT * FROM players WHERE id = ?', [id]);
+        if (!player) {
+            return res.status(404).json({ error: 'Player not found' });
+        }
+
+        await runQuery(
+            'UPDATE players SET player_name = ?, handicap = ? WHERE id = ?',
+            [
+                player_name !== undefined ? player_name : player.player_name,
+                handicap !== undefined ? handicap : player.handicap,
+                id
+            ]
+        );
+
+        const updatedPlayer = await getQuery('SELECT * FROM players WHERE id = ?', [id]);
+        res.json(updatedPlayer);
+    } catch (error) {
+        console.error('Error updating player:', error);
+        res.status(500).json({ error: 'Failed to update player' });
+    }
+});
+
 // Delete a player
 router.delete('/:id', async (req, res) => {
     try {

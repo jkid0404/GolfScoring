@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, deletePlayer } from '../services/api';
+import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, updatePlayer, deletePlayer } from '../services/api';
 import './GroupSelection.css';
 
 const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard, onEditHoles }) => {
@@ -9,7 +9,9 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [groupPlayers, setGroupPlayers] = useState([]);
     const [groupName, setGroupName] = useState('');
-    const [newPlayerForm, setNewPlayerForm] = useState({ player_name: '', handicap: 0 });
+    const [newPlayerForm, setNewPlayerForm] = useState({ player_name: '', handicap: '' });
+    const [editingPlayerId, setEditingPlayerId] = useState(null);
+    const [editForm, setEditForm] = useState({ player_name: '', handicap: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -79,9 +81,9 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
             await addPlayer({
                 group_id: selectedGroup.id,
                 player_name: newPlayerForm.player_name,
-                handicap: parseInt(newPlayerForm.handicap) || 0,
+                handicap: parseInt(newPlayerForm.handicap),
             });
-            setNewPlayerForm({ player_name: '', handicap: 0 });
+            setNewPlayerForm({ player_name: '', handicap: '' });
 
             // Reload players
             const players = await getPlayersByGroup(selectedGroup.id);
@@ -93,6 +95,42 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleEditPlayer = (player) => {
+        setEditingPlayerId(player.id);
+        setEditForm({
+            player_name: player.player_name,
+            handicap: player.handicap,
+        });
+    };
+
+    const handleSaveEdit = async (playerId) => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            await updatePlayer(playerId, {
+                player_name: editForm.player_name,
+                handicap: parseInt(editForm.handicap),
+            });
+
+            // Reload players
+            const players = await getPlayersByGroup(selectedGroup.id);
+            setGroupPlayers(players);
+            setEditingPlayerId(null);
+            loadGroups();
+        } catch (err) {
+            console.error('Error updating player:', err);
+            setError('Failed to update player');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingPlayerId(null);
+        setEditForm({ player_name: '', handicap: '' });
     };
 
     const handleDeletePlayer = async (playerId) => {
@@ -132,7 +170,9 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         setShowManagePlayers(false);
         setSelectedGroup(null);
         setGroupPlayers([]);
-        setNewPlayerForm({ player_name: '', handicap: 0 });
+        setNewPlayerForm({ player_name: '', handicap: '' });
+        setEditingPlayerId(null);
+        setEditForm({ player_name: '', handicap: '' });
     };
 
     return (
@@ -232,17 +272,65 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                     <div className="players-list">
                         {groupPlayers.map((player) => (
                             <div key={player.id} className="player-item">
-                                <div className="player-info">
-                                    <strong>{player.player_name}</strong>
-                                    <span className="player-handicap">Handicap: {player.handicap}</span>
-                                </div>
-                                <button
-                                    className="btn btn-delete btn-sm"
-                                    onClick={() => handleDeletePlayer(player.id)}
-                                    disabled={loading}
-                                >
-                                    Remove
-                                </button>
+                                {editingPlayerId === player.id ? (
+                                    <>
+                                        <div className="player-edit-form">
+                                            <input
+                                                type="text"
+                                                value={editForm.player_name}
+                                                onChange={(e) => setEditForm({ ...editForm, player_name: e.target.value })}
+                                                placeholder="Player Name"
+                                                className="edit-input"
+                                            />
+                                            <input
+                                                type="number"
+                                                value={editForm.handicap}
+                                                onChange={(e) => setEditForm({ ...editForm, handicap: e.target.value })}
+                                                placeholder="Handicap"
+                                                className="edit-input"
+                                            />
+                                        </div>
+                                        <div className="player-edit-actions">
+                                            <button
+                                                className="btn btn-primary btn-sm"
+                                                onClick={() => handleSaveEdit(player.id)}
+                                                disabled={loading}
+                                            >
+                                                Save
+                                            </button>
+                                            <button
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={handleCancelEdit}
+                                                disabled={loading}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="player-info">
+                                            <strong>{player.player_name}</strong>
+                                            <span className="player-handicap">Handicap: {player.handicap}</span>
+                                        </div>
+                                        <div className="player-actions">
+                                            <button
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={() => handleEditPlayer(player)}
+                                                disabled={loading}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                className="btn btn-delete btn-sm"
+                                                onClick={() => handleDeletePlayer(player.id)}
+                                                disabled={loading}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -264,7 +352,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label htmlFor="handicap">Handicap</label>
+                                    <label htmlFor="handicap">Handicap *</label>
                                     <input
                                         type="number"
                                         id="handicap"
@@ -272,6 +360,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                         onChange={(e) =>
                                             setNewPlayerForm({ ...newPlayerForm, handicap: e.target.value })
                                         }
+                                        required
                                     />
                                 </div>
                             </div>
@@ -283,16 +372,6 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                 {loading ? 'Adding...' : 'Add Player'}
                             </button>
                         </form>
-                    </div>
-
-                    <div className="form-actions">
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={handleCloseManagePlayers}
-                        >
-                            Done
-                        </button>
                     </div>
                 </div>
             )}

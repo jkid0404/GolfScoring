@@ -83,6 +83,21 @@
     border-bottom: 2px solid #ecf0f1;
 }
 
+.course-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.par-editor h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+}
+
 .par-grid {
     display: grid;
     grid-template-columns: repeat(6, 1fr);

@@ -9,7 +9,9 @@
       "Bash(findstr:*)",
       "Bash(curl:*)",
       "Bash(start http://localhost:3000)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)"
     ]
   }
 }

@@ -76,7 +76,12 @@ router.get('/leaderboard/:tournamentId', async (req, res) => {
     try {
         const { tournamentId } = req.params;
 
-        const leaderboard = await allQuery(`
+        // Get tournament data including handicap indices
+        const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+        const handicapIndices = tournament?.handicap_indices ? JSON.parse(tournament.handicap_indices) : null;
+
+        // Get player data and their scores
+        const players = await allQuery(`
             SELECT
                 p.id as player_id,
                 p.player_name,
@@ -84,21 +89,55 @@ router.get('/leaderboard/:tournamentId', async (req, res) => {
                 g.id as group_id,
                 g.group_name,
                 COALESCE(SUM(s.strokes), 0) as total_strokes,
-                COUNT(DISTINCT s.hole_number) as holes_completed,
-                COALESCE(SUM(s.strokes), 0) - p.handicap as net_score
+                COUNT(DISTINCT s.hole_number) as holes_completed
             FROM players p
             INNER JOIN groups g ON p.group_id = g.id
             LEFT JOIN scores s ON p.id = s.player_id
             WHERE g.tournament_id = ?
             GROUP BY p.id, p.player_name, p.handicap, g.id, g.group_name
-            ORDER BY net_score ASC, total_strokes ASC
         `, [tournamentId]);
 
-        res.json(leaderboard);
+        // Calculate net scores for each player
+        for (const player of players) {
+            // Get all scores for this player
+            const scores = await allQuery(
+                'SELECT hole_number, strokes FROM scores WHERE player_id = ?',
+                [player.player_id]
+            );
+
+            let netStrokes = 0;
+            for (const score of scores) {
+                const holeHandicapIndex = handicapIndices?.[score.hole_number] || score.hole_number;
+                const strokesReceived = getStrokesForHole(player.handicap, holeHandicapIndex);
+                netStrokes += Math.max(0, score.strokes - strokesReceived);
+            }
+
+            player.net_score = netStrokes;
+        }
+
+        // Sort by net score
+        players.sort((a, b) => {
+            if (a.net_score !== b.net_score) return a.net_score - b.net_score;
+            return a.total_strokes - b.total_strokes;
+        });
+
+        res.json(players);
     } catch (error) {
         console.error('Error fetching leaderboard:', error);
         res.status(500).json({ error: 'Failed to fetch leaderboard' });
     }
 });
+
+// Helper function to calculate strokes received on a hole
+function getStrokesForHole(playerHandicap, holeHandicapIndex) {
+    if (!playerHandicap || !holeHandicapIndex) return 0;
+
+    let strokes = 0;
+    if (playerHandicap >= holeHandicapIndex) strokes++;
+    if (playerHandicap >= 18 + holeHandicapIndex) strokes++;
+    if (playerHandicap >= 36 + holeHandicapIndex) strokes++;
+
+    return strokes;
+}
 
 module.exports = router;
