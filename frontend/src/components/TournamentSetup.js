@@ -1,24 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { createTournament, getAllTournaments, updateTournament } from '../services/api';
+import { createTournament, getAllTournaments, updateTournament, deleteTournament, getAllCourses, createCourse } from '../services/api';
 import './TournamentSetup.css';
 
 const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament }) => {
     const [tournaments, setTournaments] = useState([]);
+    const [courses, setCourses] = useState([]);
     const [showCreateForm, setShowCreateForm] = useState(false);
+    const [showCourseCreate, setShowCourseCreate] = useState(false);
     const [showParEditor, setShowParEditor] = useState(false);
     const [selectedTournament, setSelectedTournament] = useState(null);
     const [parValues, setParValues] = useState({});
     const [handicapIndices, setHandicapIndices] = useState({});
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
+        course_id: '',
         course_name: '',
         game_scoring: 'Individual',
+    });
+    const [newCourseData, setNewCourseData] = useState({
+        course_name: '',
+        par_values: {},
+        handicap_indices: {},
+        course_rating: 72.0,
+        slope: 113
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         loadTournaments();
+        loadCourses();
     }, []);
 
     useEffect(() => {
@@ -37,11 +48,35 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
         }
     };
 
+    const loadCourses = async () => {
+        try {
+            const data = await getAllCourses();
+            setCourses(data);
+        } catch (err) {
+            console.error('Error loading courses:', err);
+        }
+    };
+
     const handleInputChange = (e) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value,
         });
+    };
+
+    const handleDeleteTournament = async (tournament, e) => {
+        e.stopPropagation(); // Prevent card click
+
+        if (window.confirm(`Are you sure you want to delete the tournament from ${new Date(tournament.date).toLocaleDateString()}? This will delete all groups, players, and scores associated with this tournament.`)) {
+            try {
+                await deleteTournament(tournament.id);
+                // Remove from local state
+                setTournaments(tournaments.filter(t => t.id !== tournament.id));
+            } catch (err) {
+                console.error('Error deleting tournament:', err);
+                setError('Failed to delete tournament');
+            }
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -50,10 +85,37 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
         setError(null);
 
         try {
-            const tournament = await createTournament(formData);
+            // Get course data if a course was selected, otherwise use defaults
+            let tournamentData = { ...formData };
+
+            // Set default par values and handicap indices
+            const defaultPars = {};
+            const defaultHandicaps = {};
+            for (let i = 1; i <= 18; i++) {
+                defaultPars[i] = 4;
+                defaultHandicaps[i] = i;
+            }
+
+            if (formData.course_id) {
+                const selectedCourse = courses.find(c => c.id === parseInt(formData.course_id));
+                if (selectedCourse) {
+                    tournamentData.par_values = selectedCourse.par_values;
+                    tournamentData.handicap_indices = selectedCourse.handicap_indices;
+                } else {
+                    tournamentData.par_values = defaultPars;
+                    tournamentData.handicap_indices = defaultHandicaps;
+                }
+            } else {
+                // No course selected, use defaults
+                tournamentData.par_values = defaultPars;
+                tournamentData.handicap_indices = defaultHandicaps;
+            }
+
+            const tournament = await createTournament(tournamentData);
             setTournaments([tournament, ...tournaments]);
             setFormData({
                 date: new Date().toISOString().split('T')[0],
+                course_id: '',
                 course_name: '',
                 game_scoring: 'Individual',
             });
@@ -144,7 +206,7 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
         <div className="tournament-setup">
             {error && <div className="error-message">{error}</div>}
 
-            {!showCreateForm && !showParEditor ? (
+            {!showCreateForm && !showParEditor && !showCourseCreate ? (
                 <div className="tournament-list">
                     <h2>Select a Tournament</h2>
                     <div className="tournament-grid">
@@ -188,14 +250,37 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                         </div>
 
                         <div className="form-group">
-                            <label htmlFor="course_name">Course Name</label>
-                            <input
-                                type="text"
-                                id="course_name"
-                                name="course_name"
-                                value={formData.course_name}
-                                onChange={handleInputChange}
-                            />
+                            <label htmlFor="course_id">Course</label>
+                            <select
+                                id="course_id"
+                                name="course_id"
+                                value={formData.course_id}
+                                onChange={(e) => {
+                                    if (e.target.value === 'create_new') {
+                                        setShowCreateForm(false);
+                                        setShowCourseCreate(true);
+                                    } else {
+                                        handleInputChange(e);
+                                        // Set course_name from selected course
+                                        const selectedCourse = courses.find(c => c.id === parseInt(e.target.value));
+                                        if (selectedCourse) {
+                                            setFormData({
+                                                ...formData,
+                                                course_id: e.target.value,
+                                                course_name: selectedCourse.course_name
+                                            });
+                                        }
+                                    }
+                                }}
+                            >
+                                <option value="">Select a course...</option>
+                                {courses.map(course => (
+                                    <option key={course.id} value={course.id}>
+                                        {course.course_name}
+                                    </option>
+                                ))}
+                                <option value="create_new">Create New...</option>
+                            </select>
                         </div>
 
                         <div className="form-group">
@@ -230,6 +315,170 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                                 disabled={loading}
                             >
                                 {loading ? 'Creating...' : 'Create Tournament'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            ) : showCourseCreate ? (
+                <div className="course-create-form">
+                    <h2>Create New Course</h2>
+                    <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        try {
+                            // Initialize default values if not set
+                            const defaultPars = {};
+                            const defaultHandicaps = {};
+                            for (let i = 1; i <= 18; i++) {
+                                defaultPars[i] = newCourseData.par_values[i] || 4;
+                                defaultHandicaps[i] = newCourseData.handicap_indices[i] || i;
+                            }
+
+                            const courseData = {
+                                course_name: newCourseData.course_name,
+                                par_values: defaultPars,
+                                handicap_indices: defaultHandicaps,
+                                course_rating: parseFloat(newCourseData.course_rating) || 72.0,
+                                slope: parseInt(newCourseData.slope) || 113
+                            };
+
+                            const course = await createCourse(courseData);
+                            await loadCourses();
+
+                            // Set the new course as selected in the form
+                            setFormData({
+                                ...formData,
+                                course_id: course.id.toString(),
+                                course_name: course.course_name
+                            });
+
+                            // Reset and go back to create tournament form
+                            setNewCourseData({
+                                course_name: '',
+                                par_values: {},
+                                handicap_indices: {},
+                                course_rating: 72.0,
+                                slope: 113
+                            });
+                            setShowCourseCreate(false);
+                            setShowCreateForm(true);
+                        } catch (err) {
+                            console.error('Error creating course:', err);
+                            setError('Failed to create course');
+                        }
+                    }}>
+                        <div className="form-group">
+                            <label htmlFor="newCourseName">Course Name *</label>
+                            <input
+                                type="text"
+                                id="newCourseName"
+                                value={newCourseData.course_name}
+                                onChange={(e) => setNewCourseData({
+                                    ...newCourseData,
+                                    course_name: e.target.value
+                                })}
+                                required
+                            />
+                        </div>
+
+                        <div className="course-info-grid">
+                            <div className="form-group">
+                                <label htmlFor="newCourseRating">Course Rating</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    id="newCourseRating"
+                                    value={newCourseData.course_rating}
+                                    onChange={(e) => setNewCourseData({
+                                        ...newCourseData,
+                                        course_rating: e.target.value
+                                    })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="newSlope">Slope</label>
+                                <input
+                                    type="number"
+                                    id="newSlope"
+                                    value={newCourseData.slope}
+                                    onChange={(e) => setNewCourseData({
+                                        ...newCourseData,
+                                        slope: e.target.value
+                                    })}
+                                />
+                            </div>
+                        </div>
+
+                        <h3>Par Values & Handicap Indices</h3>
+                        <div className="holes-grid-combined">
+                            {[...Array(18)].map((_, i) => {
+                                const hole = i + 1;
+                                return (
+                                    <div key={hole} className="hole-input-combined">
+                                        <label className="hole-label">{hole}</label>
+                                        <div className="input-pair">
+                                            <div className="input-wrapper">
+                                                <label className="input-label">Par</label>
+                                                <input
+                                                    type="number"
+                                                    min="3"
+                                                    max="6"
+                                                    value={newCourseData.par_values[hole] || 4}
+                                                    onChange={(e) => setNewCourseData({
+                                                        ...newCourseData,
+                                                        par_values: {
+                                                            ...newCourseData.par_values,
+                                                            [hole]: parseInt(e.target.value) || 4
+                                                        }
+                                                    })}
+                                                />
+                                            </div>
+                                            <div className="input-wrapper">
+                                                <label className="input-label">HCP</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="18"
+                                                    value={newCourseData.handicap_indices[hole] || hole}
+                                                    onChange={(e) => setNewCourseData({
+                                                        ...newCourseData,
+                                                        handicap_indices: {
+                                                            ...newCourseData.handicap_indices,
+                                                            [hole]: parseInt(e.target.value) || 1
+                                                        }
+                                                    })}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="form-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setNewCourseData({
+                                        course_name: '',
+                                        par_values: {},
+                                        handicap_indices: {},
+                                        course_rating: 72.0,
+                                        slope: 113
+                                    });
+                                    setShowCourseCreate(false);
+                                    setShowCreateForm(true);
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={loading}
+                            >
+                                {loading ? 'Creating...' : 'Create Course'}
                             </button>
                         </div>
                     </form>

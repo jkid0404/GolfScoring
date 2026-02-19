@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, updatePlayer, deletePlayer } from '../services/api';
+import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, updatePlayer, deletePlayer, deleteTournament } from '../services/api';
 import './GroupSelection.css';
 
 const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard, onEditHoles }) => {
@@ -26,6 +26,19 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         } catch (err) {
             console.error('Error loading groups:', err);
             setError('Failed to load groups');
+        }
+    };
+
+    const handleDeleteTournament = async () => {
+        if (window.confirm(`Are you sure you want to delete the tournament from ${new Date(tournament.date).toLocaleDateString()}? This will delete all groups, players, and scores associated with this tournament.`)) {
+            try {
+                await deleteTournament(tournament.id);
+                // Navigate back to tournament selection
+                onBack();
+            } catch (err) {
+                console.error('Error deleting tournament:', err);
+                setError('Failed to delete tournament');
+            }
         }
     };
 
@@ -181,7 +194,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                 <button className="btn btn-back" onClick={onBack}>
                     Back
                 </button>
-                <h2>{tournament.name}</h2>
+                <h2>{new Date(tournament.date).toLocaleDateString()}</h2>
                 <button className="btn btn-primary" onClick={onShowLeaderboard}>
                     Leaderboard
                 </button>
@@ -224,10 +237,10 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                             Create New Group
                         </button>
                         <button
-                            className="btn btn-secondary"
-                            onClick={onEditHoles}
+                            className="btn btn-delete"
+                            onClick={handleDeleteTournament}
                         >
-                            Edit Tournament
+                            Delete Tournament
                         </button>
                     </div>
                 </div>

@@ -125,4 +125,39 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+// Delete a tournament
+router.delete('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if tournament exists
+        const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [id]);
+        if (!tournament) {
+            return res.status(404).json({ error: 'Tournament not found' });
+        }
+
+        // Delete related data first (cascade delete)
+        // Delete scores
+        await runQuery('DELETE FROM scores WHERE tournament_id = ?', [id]);
+
+        // Delete players from groups in this tournament
+        await runQuery(`
+            DELETE FROM players WHERE group_id IN (
+                SELECT id FROM groups WHERE tournament_id = ?
+            )
+        `, [id]);
+
+        // Delete groups
+        await runQuery('DELETE FROM groups WHERE tournament_id = ?', [id]);
+
+        // Finally delete the tournament
+        await runQuery('DELETE FROM tournaments WHERE id = ?', [id]);
+
+        res.json({ message: 'Tournament deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting tournament:', error);
+        res.status(500).json({ error: 'Failed to delete tournament' });
+    }
+});
+
 module.exports = router;

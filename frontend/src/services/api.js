@@ -30,6 +30,11 @@ export const updateTournament = async (id, tournamentData) => {
     return response.data;
 };
 
+export const deleteTournament = async (id) => {
+    const response = await api.delete(`/tournaments/${id}`);
+    return response.data;
+};
+
 // Group APIs
 export const createGroup = async (groupData) => {
     const response = await api.post('/groups', groupData);
@@ -85,6 +90,32 @@ export const getPlayerScores = async (playerId) => {
 
 export const getLeaderboard = async (tournamentId) => {
     const response = await api.get(`/scores/leaderboard/${tournamentId}`);
+    return response.data;
+};
+
+// Course APIs
+export const getAllCourses = async () => {
+    const response = await api.get('/courses');
+    return response.data;
+};
+
+export const getCourse = async (id) => {
+    const response = await api.get(`/courses/${id}`);
+    return response.data;
+};
+
+export const createCourse = async (courseData) => {
+    const response = await api.post('/courses', courseData);
+    return response.data;
+};
+
+export const updateCourse = async (id, courseData) => {
+    const response = await api.put(`/courses/${id}`, courseData);
+    return response.data;
+};
+
+export const deleteCourse = async (id) => {
+    const response = await api.delete(`/courses/${id}`);
     return response.data;
 };
 

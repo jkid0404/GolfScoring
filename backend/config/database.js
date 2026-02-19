@@ -94,6 +94,39 @@ const initializeDatabase = (database) => {
                 }
             });
 
+            // Create courses table
+            database.run(`
+                CREATE TABLE IF NOT EXISTS courses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    course_name TEXT NOT NULL UNIQUE,
+                    par_values TEXT DEFAULT '{"1":4,"2":4,"3":4,"4":4,"5":4,"6":4,"7":4,"8":4,"9":4,"10":4,"11":4,"12":4,"13":4,"14":4,"15":4,"16":4,"17":4,"18":4}',
+                    handicap_indices TEXT DEFAULT '{"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,"11":11,"12":12,"13":13,"14":14,"15":15,"16":16,"17":17,"18":18}',
+                    course_rating REAL DEFAULT 72.0,
+                    slope INTEGER DEFAULT 113,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `, (err) => {
+                if (err) console.error('Error creating courses table:', err);
+            });
+
+            // Add course_rating column to courses if it doesn't exist
+            database.run(`
+                ALTER TABLE courses ADD COLUMN course_rating REAL DEFAULT 72.0
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding course_rating column to courses:', err);
+                }
+            });
+
+            // Add slope column to courses if it doesn't exist
+            database.run(`
+                ALTER TABLE courses ADD COLUMN slope INTEGER DEFAULT 113
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding slope column to courses:', err);
+                }
+            });
+
             // Create indexes
             database.run('CREATE INDEX IF NOT EXISTS idx_scores_player ON scores(player_id)');
             database.run('CREATE INDEX IF NOT EXISTS idx_scores_tournament ON scores(tournament_id)');
