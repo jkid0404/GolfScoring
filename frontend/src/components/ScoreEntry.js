@@ -16,13 +16,32 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
     const isTeamFormat = tournament?.game_scoring?.includes('Shamble') ||
                          tournament?.game_scoring?.includes('Scramble');
 
+    // Calculate team handicap (average of players, rounded down)
+    const getTeamHandicap = (teamPlayers) => {
+        const totalHandicap = teamPlayers.reduce((sum, player) => sum + (player.handicap || 0), 0);
+        return Math.floor(totalHandicap / teamPlayers.length);
+    };
+
     // Create teams for Shamble/Scramble (first 2 players = Team 1, last 2 = Team 2)
     const getTeams = () => {
         if (!isTeamFormat) return null;
         const players = group.players;
+        const team1Players = players.slice(0, 2);
+        const team2Players = players.slice(Math.max(players.length - 2, 0));
+
         return [
-            { id: 'team1', name: 'Team 1', players: players.slice(0, 2) },
-            { id: 'team2', name: 'Team 2', players: players.slice(Math.max(players.length - 2, 0)) }
+            {
+                id: 'team1',
+                name: 'Team 1',
+                players: team1Players,
+                handicap: getTeamHandicap(team1Players)
+            },
+            {
+                id: 'team2',
+                name: 'Team 2',
+                players: team2Players,
+                handicap: getTeamHandicap(team2Players)
+            }
         ];
     };
 
@@ -380,30 +399,43 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
             <div className="players-scoring">
                 {isTeamFormat ? (
                     // Team-based score entry for Shamble/Scramble
-                    getTeams().map((team) => (
-                        <div key={team.id} className="player-score-card team-score-card">
-                            <div className="player-name-section">
-                                <h3>{team.name}</h3>
-                                <div className="team-players">
-                                    {team.players.map((player, idx) => (
-                                        <span key={player.id}>
-                                            {player.player_name}
-                                            {idx < team.players.length - 1 && ' & '}
-                                        </span>
-                                    ))}
+                    getTeams().map((team) => {
+                        const holeHandicapIndex = tournament?.handicap_indices?.[currentHole];
+                        const strokes = getStrokesForHole(team.handicap, holeHandicapIndex);
+
+                        return (
+                            <div key={team.id} className="player-score-card team-score-card">
+                                <div className="player-name-section">
+                                    <h3>{team.name}</h3>
+                                    <div className="team-players">
+                                        {team.players.map((player, idx) => (
+                                            <span key={player.id}>
+                                                {player.player_name}
+                                                {idx < team.players.length - 1 && ' & '}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="team-handicap">Team HCP: {team.handicap}</div>
+                                    {strokes > 0 && (
+                                        <div className="stroke-dots">
+                                            {[...Array(strokes)].map((_, i) => (
+                                                <span key={i} className="dot">•</span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="15"
+                                    value={teamScores[team.id] || ''}
+                                    onChange={(e) => handleScoreChange(team.id, e.target.value)}
+                                    className="score-input"
+                                    placeholder="-"
+                                />
                             </div>
-                            <input
-                                type="number"
-                                min="1"
-                                max="15"
-                                value={teamScores[team.id] || ''}
-                                onChange={(e) => handleScoreChange(team.id, e.target.value)}
-                                className="score-input"
-                                placeholder="-"
-                            />
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
                     // Individual player score entry
                     group.players.map((player) => {

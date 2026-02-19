@@ -534,7 +534,7 @@ async function processTeamFormat(players, group, handicapIndices, allQuery) {
     for (const score of scores) {
         const holeHandicapIndex = handicapIndices?.[score.hole_number] || score.hole_number;
         // Use average team handicap for net calculation
-        const avgHandicap = Math.round(players.reduce((sum, p) => sum + (p.handicap || 0), 0) / players.length);
+        const avgHandicap = Math.floor(players.reduce((sum, p) => sum + (p.handicap || 0), 0) / players.length);
         const strokesReceived = getStrokesForHole(avgHandicap, holeHandicapIndex);
         const netScore = Math.max(0, score.strokes - strokesReceived);
 
@@ -604,7 +604,7 @@ async function calculateTeamSkins(teams, tournamentId, allQuery, handicapIndices
 
             if (holeScore) {
                 const holeHandicapIndex = handicapIndices?.[hole] || hole;
-                const avgHandicap = Math.round(team.players.reduce((sum, p) => sum + (p.handicap || 0), 0) / team.players.length);
+                const avgHandicap = Math.floor(team.players.reduce((sum, p) => sum + (p.handicap || 0), 0) / team.players.length);
                 const strokesReceived = getStrokesForHole(avgHandicap, holeHandicapIndex);
                 const netScore = holeScore.strokes - strokesReceived;
 
