@@ -10,6 +10,21 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
     const [error, setError] = useState(null);
     const [saveMessage, setSaveMessage] = useState('');
     const [showSummary, setShowSummary] = useState(false);
+    const [teamScores, setTeamScores] = useState({}); // For Shamble/Scramble
+
+    // Check if this is a team-based format (Shamble or Scramble)
+    const isTeamFormat = tournament?.game_scoring?.includes('Shamble') ||
+                         tournament?.game_scoring?.includes('Scramble');
+
+    // Create teams for Shamble/Scramble (first 2 players = Team 1, last 2 = Team 2)
+    const getTeams = () => {
+        if (!isTeamFormat) return null;
+        const players = group.players;
+        return [
+            { id: 'team1', name: 'Team 1', players: players.slice(0, 2) },
+            { id: 'team2', name: 'Team 2', players: players.slice(Math.max(players.length - 2, 0)) }
+        ];
+    };
 
     useEffect(() => {
         loadAllScores();
@@ -41,18 +56,39 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
 
     useEffect(() => {
         // Update hole scores when hole changes
-        const currentHoleScores = {};
-        group.players.forEach(player => {
-            currentHoleScores[player.id] = allScores[player.id]?.[currentHole] || '';
-        });
-        setHoleScores(currentHoleScores);
-    }, [currentHole, allScores, group.players]);
+        if (isTeamFormat) {
+            // For team formats, load team scores
+            const teams = getTeams();
+            const currentTeamScores = {};
+            teams.forEach(team => {
+                // Get score from first player in team (they all have same score)
+                const firstPlayer = team.players[0];
+                currentTeamScores[team.id] = allScores[firstPlayer?.id]?.[currentHole] || '';
+            });
+            setTeamScores(currentTeamScores);
+        } else {
+            // Individual format
+            const currentHoleScores = {};
+            group.players.forEach(player => {
+                currentHoleScores[player.id] = allScores[player.id]?.[currentHole] || '';
+            });
+            setHoleScores(currentHoleScores);
+        }
+    }, [currentHole, allScores, group.players, isTeamFormat]);
 
     const handleScoreChange = (playerId, value) => {
-        setHoleScores({
-            ...holeScores,
-            [playerId]: value === '' ? '' : parseInt(value),
-        });
+        if (isTeamFormat) {
+            // For team formats, update team score
+            setTeamScores({
+                ...teamScores,
+                [playerId]: value === '' ? '' : parseInt(value),
+            });
+        } else {
+            setHoleScores({
+                ...holeScores,
+                [playerId]: value === '' ? '' : parseInt(value),
+            });
+        }
     };
 
     const handleSaveHole = async () => {
@@ -62,34 +98,73 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
 
         try {
             const savePromises = [];
-            for (const player of group.players) {
-                const score = holeScores[player.id];
-                if (score !== '' && score !== null && score !== undefined) {
-                    savePromises.push(
-                        submitScore({
-                            player_id: player.id,
-                            group_id: group.id,
-                            tournament_id: tournament.id,
-                            hole_number: currentHole,
-                            strokes: parseInt(score),
-                        })
-                    );
+
+            if (isTeamFormat) {
+                // For team formats, save the same score for all players in each team
+                const teams = getTeams();
+                for (const team of teams) {
+                    const teamScore = teamScores[team.id];
+                    if (teamScore !== '' && teamScore !== null && teamScore !== undefined) {
+                        // Save the same score for all players in this team
+                        for (const player of team.players) {
+                            savePromises.push(
+                                submitScore({
+                                    player_id: player.id,
+                                    group_id: group.id,
+                                    tournament_id: tournament.id,
+                                    hole_number: currentHole,
+                                    strokes: parseInt(teamScore),
+                                })
+                            );
+                        }
+                    }
                 }
+
+                // Update allScores state for team format
+                const updatedScores = { ...allScores };
+                teams.forEach(team => {
+                    const teamScore = teamScores[team.id];
+                    if (teamScore !== '' && teamScore !== null) {
+                        team.players.forEach(player => {
+                            if (!updatedScores[player.id]) {
+                                updatedScores[player.id] = {};
+                            }
+                            updatedScores[player.id][currentHole] = parseInt(teamScore);
+                        });
+                    }
+                });
+                setAllScores(updatedScores);
+            } else {
+                // Individual format
+                for (const player of group.players) {
+                    const score = holeScores[player.id];
+                    if (score !== '' && score !== null && score !== undefined) {
+                        savePromises.push(
+                            submitScore({
+                                player_id: player.id,
+                                group_id: group.id,
+                                tournament_id: tournament.id,
+                                hole_number: currentHole,
+                                strokes: parseInt(score),
+                            })
+                        );
+                    }
+                }
+
+                // Update allScores state
+                const updatedScores = { ...allScores };
+                group.players.forEach(player => {
+                    if (!updatedScores[player.id]) {
+                        updatedScores[player.id] = {};
+                    }
+                    if (holeScores[player.id] !== '' && holeScores[player.id] !== null) {
+                        updatedScores[player.id][currentHole] = parseInt(holeScores[player.id]);
+                    }
+                });
+                setAllScores(updatedScores);
             }
 
             await Promise.all(savePromises);
-
-            // Update allScores state
-            const updatedScores = { ...allScores };
-            group.players.forEach(player => {
-                if (!updatedScores[player.id]) {
-                    updatedScores[player.id] = {};
-                }
-                if (holeScores[player.id] !== '' && holeScores[player.id] !== null) {
-                    updatedScores[player.id][currentHole] = parseInt(holeScores[player.id]);
-                }
-            });
-            setAllScores(updatedScores);
 
             // Auto-advance to next hole or summary first
             if (currentHole < 18) {
@@ -277,9 +352,19 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
             <div className="hole-selector">
                 {[...Array(18)].map((_, index) => {
                     const hole = index + 1;
-                    const isComplete = group.players.every(
-                        player => allScores[player.id]?.[hole]
-                    );
+                    let isComplete;
+                    if (isTeamFormat) {
+                        // Check if all teams have scores for this hole
+                        const teams = getTeams();
+                        isComplete = teams.every(team =>
+                            team.players.some(player => allScores[player.id]?.[hole])
+                        );
+                    } else {
+                        // Check if all players have scores for this hole
+                        isComplete = group.players.every(
+                            player => allScores[player.id]?.[hole]
+                        );
+                    }
                     return (
                         <button
                             key={hole}
@@ -293,34 +378,63 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
             </div>
 
             <div className="players-scoring">
-                {group.players.map((player) => {
-                    const holeHandicapIndex = tournament?.handicap_indices?.[currentHole];
-                    const strokes = getStrokesForHole(player.handicap, holeHandicapIndex);
-
-                    return (
-                        <div key={player.id} className="player-score-card">
+                {isTeamFormat ? (
+                    // Team-based score entry for Shamble/Scramble
+                    getTeams().map((team) => (
+                        <div key={team.id} className="player-score-card team-score-card">
                             <div className="player-name-section">
-                                <h3>{player.player_name}</h3>
-                                {strokes > 0 && (
-                                    <div className="stroke-dots">
-                                        {[...Array(strokes)].map((_, i) => (
-                                            <span key={i} className="dot">•</span>
-                                        ))}
-                                    </div>
-                                )}
+                                <h3>{team.name}</h3>
+                                <div className="team-players">
+                                    {team.players.map((player, idx) => (
+                                        <span key={player.id}>
+                                            {player.player_name}
+                                            {idx < team.players.length - 1 && ' & '}
+                                        </span>
+                                    ))}
+                                </div>
                             </div>
                             <input
                                 type="number"
                                 min="1"
                                 max="15"
-                                value={holeScores[player.id] || ''}
-                                onChange={(e) => handleScoreChange(player.id, e.target.value)}
+                                value={teamScores[team.id] || ''}
+                                onChange={(e) => handleScoreChange(team.id, e.target.value)}
                                 className="score-input"
                                 placeholder="-"
                             />
                         </div>
-                    );
-                })}
+                    ))
+                ) : (
+                    // Individual player score entry
+                    group.players.map((player) => {
+                        const holeHandicapIndex = tournament?.handicap_indices?.[currentHole];
+                        const strokes = getStrokesForHole(player.handicap, holeHandicapIndex);
+
+                        return (
+                            <div key={player.id} className="player-score-card">
+                                <div className="player-name-section">
+                                    <h3>{player.player_name}</h3>
+                                    {strokes > 0 && (
+                                        <div className="stroke-dots">
+                                            {[...Array(strokes)].map((_, i) => (
+                                                <span key={i} className="dot">•</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="15"
+                                    value={holeScores[player.id] || ''}
+                                    onChange={(e) => handleScoreChange(player.id, e.target.value)}
+                                    className="score-input"
+                                    placeholder="-"
+                                />
+                            </div>
+                        );
+                    })
+                )}
             </div>
 
             <div className="action-buttons">

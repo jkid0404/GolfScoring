@@ -190,6 +190,17 @@
     font-weight: bold;
 }
 
+.team-score-card {
+    grid-column: span 2;
+}
+
+.team-players {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    font-weight: 400;
+    text-align: center;
+}
+
 .score-input {
     padding: 15px;
     border: 2px solid #ecf0f1;

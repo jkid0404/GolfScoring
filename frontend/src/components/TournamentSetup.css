@@ -58,6 +58,13 @@
     margin-top: 5px;
 }
 
+.tournament-scoring {
+    color: #3498db;
+    font-size: 0.85rem;
+    margin-top: 5px;
+    font-weight: 500;
+}
+
 .tournament-par {
     color: #3498db;
     font-size: 0.9rem;

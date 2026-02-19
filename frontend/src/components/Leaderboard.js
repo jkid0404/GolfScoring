@@ -6,6 +6,7 @@ import './Leaderboard.css';
 const Leaderboard = ({ tournament, onBack }) => {
     const [leaderboard, setLeaderboard] = useState([]);
     const [skinsDetails, setSkinsDetails] = useState([]);
+    const [isBestBall, setIsBestBall] = useState(false);
     const [tournamentData, setTournamentData] = useState(tournament);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -53,13 +54,15 @@ const Leaderboard = ({ tournament, onBack }) => {
             const data = await getLeaderboard(tournament.id);
 
             // Handle new response format with players and skinsDetails
-            if (data.players && data.skinsDetails) {
+            if (data.players && data.skinsDetails !== undefined) {
                 setLeaderboard(data.players);
                 setSkinsDetails(data.skinsDetails);
+                setIsBestBall(data.isBestBall || false);
             } else {
                 // Fallback for old format
                 setLeaderboard(data);
                 setSkinsDetails([]);
+                setIsBestBall(false);
             }
 
             setError(null);
@@ -76,10 +79,19 @@ const Leaderboard = ({ tournament, onBack }) => {
         return Object.values(tournamentData.par_values).reduce((sum, par) => sum + par, 0);
     };
 
-    const formatScoreToPar = (score, holesCompleted) => {
+    const formatScoreToPar = (score, holesCompleted, effectivePar) => {
         if (holesCompleted === 0) return { text: 'E', color: 'green' };
-        const totalPar = getTotalPar();
-        const parForHolesPlayed = (totalPar / 18) * holesCompleted;
+
+        let parForHolesPlayed;
+        if (effectivePar !== undefined) {
+            // Use effective par for 1,2,3 format
+            parForHolesPlayed = effectivePar;
+        } else {
+            // Calculate par normally for other formats
+            const totalPar = getTotalPar();
+            parForHolesPlayed = (totalPar / 18) * holesCompleted;
+        }
+
         const diff = score - parForHolesPlayed;
 
         if (diff === 0) return { text: 'E', color: 'green' };
@@ -87,10 +99,19 @@ const Leaderboard = ({ tournament, onBack }) => {
         return { text: `${diff}`, color: 'red' };
     };
 
-    const getScoreRelativeToPar = (score, holesCompleted) => {
+    const getScoreRelativeToPar = (score, holesCompleted, effectivePar) => {
         if (holesCompleted === 0) return 0;
-        const totalPar = getTotalPar();
-        const parForHolesPlayed = (totalPar / 18) * holesCompleted;
+
+        let parForHolesPlayed;
+        if (effectivePar !== undefined) {
+            // Use effective par for 1,2,3 format
+            parForHolesPlayed = effectivePar;
+        } else {
+            // Calculate par normally for other formats
+            const totalPar = getTotalPar();
+            parForHolesPlayed = (totalPar / 18) * holesCompleted;
+        }
+
         return score - parForHolesPlayed;
     };
 
@@ -101,8 +122,8 @@ const Leaderboard = ({ tournament, onBack }) => {
             if (b.holes_completed === 0 && a.holes_completed > 0) return -1;
 
             // Calculate score relative to par for both players
-            const aRelativePar = getScoreRelativeToPar(a.total_strokes, a.holes_completed);
-            const bRelativePar = getScoreRelativeToPar(b.total_strokes, b.holes_completed);
+            const aRelativePar = getScoreRelativeToPar(a.total_strokes, a.holes_completed, a.effective_par);
+            const bRelativePar = getScoreRelativeToPar(b.total_strokes, b.holes_completed, b.effective_par);
 
             // Sort by score relative to par (lower is better)
             if (aRelativePar !== bRelativePar) {
@@ -124,8 +145,8 @@ const Leaderboard = ({ tournament, onBack }) => {
             if (b.holes_completed === 0 && a.holes_completed > 0) return -1;
 
             // Calculate score relative to par for both players
-            const aRelativePar = getScoreRelativeToPar(a.net_score, a.holes_completed);
-            const bRelativePar = getScoreRelativeToPar(b.net_score, b.holes_completed);
+            const aRelativePar = getScoreRelativeToPar(a.net_score, a.holes_completed, a.effective_par);
+            const bRelativePar = getScoreRelativeToPar(b.net_score, b.holes_completed, b.effective_par);
 
             // Sort by score relative to par (lower is better)
             if (aRelativePar !== bRelativePar) {
@@ -211,16 +232,19 @@ const Leaderboard = ({ tournament, onBack }) => {
                         </div>
                         {grossLeaderboard.map((player, index) => {
                             const hasScores = player.holes_completed > 0;
-                            const scoreData = hasScores ? formatScoreToPar(player.total_strokes, player.holes_completed) : { text: '-', color: 'black' };
-                            const currentRelativePar = getScoreRelativeToPar(player.total_strokes, player.holes_completed);
+                            const scoreData = hasScores ? formatScoreToPar(player.total_strokes, player.holes_completed, player.effective_par) : { text: '-', color: 'black' };
+                            const currentRelativePar = getScoreRelativeToPar(player.total_strokes, player.holes_completed, player.effective_par);
                             const previousPlayer = index > 0 ? grossLeaderboard[index - 1] : null;
-                            const previousRelativePar = previousPlayer ? getScoreRelativeToPar(previousPlayer.total_strokes, previousPlayer.holes_completed) : null;
+                            const previousRelativePar = previousPlayer ? getScoreRelativeToPar(previousPlayer.total_strokes, previousPlayer.holes_completed, previousPlayer.effective_par) : null;
                             const showPosition = hasScores && (index === 0 || currentRelativePar !== previousRelativePar);
 
+                            const displayName = isBestBall ? `${player.group_name} (${player.player_names})` : player.player_name;
+                            const key = isBestBall ? `gross-${player.group_id}` : `gross-${player.player_id}`;
+
                             return (
-                                <div key={`gross-${player.player_id}`} className="table-row">
+                                <div key={key} className="table-row">
                                     <div className="rank">{showPosition ? index + 1 : ''}</div>
-                                    <div className="player-name">{player.player_name}</div>
+                                    <div className="player-name">{displayName}</div>
                                     <div className="score-to-par" style={{ color: scoreData.color }}>
                                         {scoreData.text}
                                     </div>
@@ -246,16 +270,19 @@ const Leaderboard = ({ tournament, onBack }) => {
                         </div>
                         {netLeaderboard.map((player, index) => {
                             const hasScores = player.holes_completed > 0;
-                            const scoreData = hasScores ? formatScoreToPar(player.net_score, player.holes_completed) : { text: '-', color: 'black' };
-                            const currentRelativePar = getScoreRelativeToPar(player.net_score, player.holes_completed);
+                            const scoreData = hasScores ? formatScoreToPar(player.net_score, player.holes_completed, player.effective_par) : { text: '-', color: 'black' };
+                            const currentRelativePar = getScoreRelativeToPar(player.net_score, player.holes_completed, player.effective_par);
                             const previousPlayer = index > 0 ? netLeaderboard[index - 1] : null;
-                            const previousRelativePar = previousPlayer ? getScoreRelativeToPar(previousPlayer.net_score, previousPlayer.holes_completed) : null;
+                            const previousRelativePar = previousPlayer ? getScoreRelativeToPar(previousPlayer.net_score, previousPlayer.holes_completed, previousPlayer.effective_par) : null;
                             const showPosition = hasScores && (index === 0 || currentRelativePar !== previousRelativePar);
 
+                            const displayName = isBestBall ? `${player.group_name} (${player.player_names})` : player.player_name;
+                            const key = isBestBall ? `net-${player.group_id}` : `net-${player.player_id}`;
+
                             return (
-                                <div key={`net-${player.player_id}`} className="table-row">
+                                <div key={key} className="table-row">
                                     <div className="rank">{showPosition ? index + 1 : ''}</div>
-                                    <div className="player-name">{player.player_name}</div>
+                                    <div className="player-name">{displayName}</div>
                                     <div className="score-to-par" style={{ color: scoreData.color }}>
                                         {scoreData.text}
                                     </div>

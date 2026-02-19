@@ -135,6 +135,15 @@ const initializeDatabase = (database) => {
                     console.error('Error adding slope column:', err);
                 }
             });
+
+            // Add game_scoring column if it doesn't exist (for existing databases)
+            database.run(`
+                ALTER TABLE tournaments ADD COLUMN game_scoring TEXT DEFAULT 'Individual'
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding game_scoring column:', err);
+                }
+            });
         });
     });
 };

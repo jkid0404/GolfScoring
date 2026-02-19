@@ -5,18 +5,20 @@ const { runQuery, getQuery, allQuery } = require('../config/database');
 // Create a new tournament
 router.post('/', async (req, res) => {
     try {
-        const { name, date, course_name, par_values, handicap_indices, course_rating, slope } = req.body;
+        const { date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring } = req.body;
 
-        if (!name || !date) {
-            return res.status(400).json({ error: 'Name and date are required' });
+        if (!date) {
+            return res.status(400).json({ error: 'Date is required' });
         }
 
+        // Use date as the name
+        const name = date;
         const parJson = par_values ? JSON.stringify(par_values) : null;
         const handicapJson = handicap_indices ? JSON.stringify(handicap_indices) : null;
 
         const result = await runQuery(
-            'INSERT INTO tournaments (name, date, course_name, par_values, handicap_indices, course_rating, slope) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [name, date, course_name, parJson, handicapJson, course_rating || 72.0, slope || 113]
+            'INSERT INTO tournaments (name, date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, date, course_name, parJson, handicapJson, course_rating || 72.0, slope || 113, game_scoring || 'Individual']
         );
 
         const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [result.id]);
@@ -80,7 +82,7 @@ router.get('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, date, course_name, par_values, handicap_indices, course_rating, slope } = req.body;
+        const { date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring } = req.body;
 
         const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [id]);
         if (!tournament) {
@@ -90,16 +92,20 @@ router.put('/:id', async (req, res) => {
         const parJson = par_values ? JSON.stringify(par_values) : tournament.par_values;
         const handicapJson = handicap_indices ? JSON.stringify(handicap_indices) : tournament.handicap_indices;
 
+        // Use date as the name if date is updated
+        const name = date || tournament.date;
+
         await runQuery(
-            'UPDATE tournaments SET name = ?, date = ?, course_name = ?, par_values = ?, handicap_indices = ?, course_rating = ?, slope = ? WHERE id = ?',
+            'UPDATE tournaments SET name = ?, date = ?, course_name = ?, par_values = ?, handicap_indices = ?, course_rating = ?, slope = ?, game_scoring = ? WHERE id = ?',
             [
-                name || tournament.name,
+                name,
                 date || tournament.date,
                 course_name !== undefined ? course_name : tournament.course_name,
                 parJson,
                 handicapJson,
                 course_rating !== undefined ? course_rating : tournament.course_rating,
                 slope !== undefined ? slope : tournament.slope,
+                game_scoring !== undefined ? game_scoring : tournament.game_scoring,
                 id
             ]
         );

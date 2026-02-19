@@ -80,8 +80,24 @@ router.get('/leaderboard/:tournamentId', async (req, res) => {
         const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
         const handicapIndices = tournament?.handicap_indices ? JSON.parse(tournament.handicap_indices) : null;
         const parValues = tournament?.par_values ? JSON.parse(tournament.par_values) : null;
+        const gameScoring = tournament?.game_scoring || 'Individual';
 
-        // Get player data and their scores
+        // Check if this is a team-based format
+        if (gameScoring.includes('Best Ball')) {
+            return handleBestBallLeaderboard(tournamentId, tournament, handicapIndices, parValues, gameScoring, allQuery, res);
+        }
+
+        // Check if this is a Shamble or Scramble format
+        if (gameScoring.includes('Shamble') || gameScoring.includes('Scramble')) {
+            return handleTeamFormatLeaderboard(tournamentId, tournament, handicapIndices, parValues, gameScoring, allQuery, res);
+        }
+
+        // Check if this is a 1,2,3 format
+        if (gameScoring === '1,2,3') {
+            return handle123Leaderboard(tournamentId, tournament, handicapIndices, parValues, allQuery, res);
+        }
+
+        // Get player data and their scores (Individual scoring)
         const players = await allQuery(`
             SELECT
                 p.id as player_id,
@@ -152,6 +168,186 @@ function getStrokesForHole(playerHandicap, holeHandicapIndex) {
     if (playerHandicap >= 36 + holeHandicapIndex) strokes++;
 
     return strokes;
+}
+
+// Helper function to handle best ball leaderboard
+async function handleBestBallLeaderboard(tournamentId, tournament, handicapIndices, parValues, gameScoring, allQuery, res) {
+    try {
+        const isTwoPersonBestBall = gameScoring.includes('2 Person Best Ball');
+
+        // Get all groups in the tournament
+        const groups = await allQuery(
+            'SELECT id, group_name FROM groups WHERE tournament_id = ?',
+            [tournamentId]
+        );
+
+        const leaderboardData = [];
+
+        for (const group of groups) {
+            // Get all players in this group ordered by id
+            const players = await allQuery(
+                'SELECT id, player_name, handicap FROM players WHERE group_id = ? ORDER BY id',
+                [group.id]
+            );
+
+            if (players.length === 0) continue;
+
+            // For 2 Person Best Ball, split into teams of 2
+            if (isTwoPersonBestBall) {
+                // Team 1: First 2 players
+                const team1 = players.slice(0, 2);
+                // Team 2: Last 2 players
+                const team2 = players.slice(Math.max(players.length - 2, 0));
+
+                if (team1.length > 0) {
+                    await processTeam(team1, group, 'Team 1', handicapIndices, allQuery, leaderboardData);
+                }
+                if (team2.length > 0 && team2[0].id !== team1[0].id) {
+                    await processTeam(team2, group, 'Team 2', handicapIndices, allQuery, leaderboardData);
+                }
+                continue;
+            }
+
+            // Get all scores for all players in this group
+            const allScores = await allQuery(
+                'SELECT player_id, hole_number, strokes FROM scores WHERE player_id IN (' +
+                players.map(p => p.id).join(',') + ') ORDER BY hole_number'
+            );
+
+            // Group scores by hole
+            const scoresByHole = {};
+            for (const score of allScores) {
+                if (!scoresByHole[score.hole_number]) {
+                    scoresByHole[score.hole_number] = [];
+                }
+                const player = players.find(p => p.id === score.player_id);
+                const holeHandicapIndex = handicapIndices?.[score.hole_number] || score.hole_number;
+                const strokesReceived = getStrokesForHole(player.handicap, holeHandicapIndex);
+
+                scoresByHole[score.hole_number].push({
+                    player_id: score.player_id,
+                    gross_strokes: score.strokes,
+                    net_strokes: score.strokes - strokesReceived
+                });
+            }
+
+            // Calculate best ball scores
+            let totalGross = 0;
+            let totalNet = 0;
+            let holesCompleted = 0;
+
+            for (let hole = 1; hole <= 18; hole++) {
+                const holeScores = scoresByHole[hole];
+                if (holeScores && holeScores.length > 0) {
+                    // Take the best (lowest) gross score
+                    const bestGross = Math.min(...holeScores.map(s => s.gross_strokes));
+                    // Take the best (lowest) net score
+                    const bestNet = Math.min(...holeScores.map(s => s.net_strokes));
+
+                    totalGross += bestGross;
+                    totalNet += bestNet;
+                    holesCompleted++;
+                }
+            }
+
+            // Add group to leaderboard
+            leaderboardData.push({
+                group_id: group.id,
+                group_name: group.group_name,
+                player_names: players.map(p => p.player_name).join(', '),
+                total_strokes: totalGross,
+                net_score: totalNet,
+                holes_completed: holesCompleted,
+                skins: 0 // Best ball doesn't use skins typically
+            });
+        }
+
+        // Sort by net score
+        leaderboardData.sort((a, b) => {
+            if (a.net_score !== b.net_score) return a.net_score - b.net_score;
+            return a.total_strokes - b.total_strokes;
+        });
+
+        // Calculate skins using individual player scores
+        // Get all individual players for skins calculation
+        const allPlayers = [];
+        for (const group of groups) {
+            const players = await allQuery(
+                'SELECT id as player_id, player_name, handicap FROM players WHERE group_id = ? ORDER BY id',
+                [group.id]
+            );
+            allPlayers.push(...players);
+        }
+
+        const skins = calculateSkins(allPlayers, tournamentId, allQuery, handicapIndices, parValues);
+        const { skinsDetails } = await skins;
+
+        // Return with individual skins data
+        res.json({
+            players: leaderboardData,
+            skinsDetails: skinsDetails,
+            isBestBall: true
+        });
+    } catch (error) {
+        console.error('Error calculating best ball leaderboard:', error);
+        res.status(500).json({ error: 'Failed to calculate best ball leaderboard' });
+    }
+}
+
+// Helper function to process a team for best ball
+async function processTeam(players, group, teamLabel, handicapIndices, allQuery, leaderboardData) {
+    // Get all scores for all players in this team
+    const allScores = await allQuery(
+        'SELECT player_id, hole_number, strokes FROM scores WHERE player_id IN (' +
+        players.map(p => p.id).join(',') + ') ORDER BY hole_number'
+    );
+
+    // Group scores by hole
+    const scoresByHole = {};
+    for (const score of allScores) {
+        if (!scoresByHole[score.hole_number]) {
+            scoresByHole[score.hole_number] = [];
+        }
+        const player = players.find(p => p.id === score.player_id);
+        const holeHandicapIndex = handicapIndices?.[score.hole_number] || score.hole_number;
+        const strokesReceived = getStrokesForHole(player.handicap, holeHandicapIndex);
+
+        scoresByHole[score.hole_number].push({
+            player_id: score.player_id,
+            gross_strokes: score.strokes,
+            net_strokes: score.strokes - strokesReceived
+        });
+    }
+
+    // Calculate best ball scores
+    let totalGross = 0;
+    let totalNet = 0;
+    let holesCompleted = 0;
+
+    for (let hole = 1; hole <= 18; hole++) {
+        const holeScores = scoresByHole[hole];
+        if (holeScores && holeScores.length > 0) {
+            // Take the best (lowest) gross score
+            const bestGross = Math.min(...holeScores.map(s => s.gross_strokes));
+            // Take the best (lowest) net score
+            const bestNet = Math.min(...holeScores.map(s => s.net_strokes));
+
+            totalGross += bestGross;
+            totalNet += bestNet;
+            holesCompleted++;
+        }
+    }
+
+    // Add team to leaderboard
+    leaderboardData.push({
+        group_id: `${group.id}-${teamLabel}`,
+        group_name: group.group_name,
+        player_names: players.map(p => p.player_name).join(' & '),
+        total_strokes: totalGross,
+        net_score: totalNet,
+        holes_completed: holesCompleted,
+        skins: 0
+    });
 }
 
 // Helper function to get score name relative to par
@@ -248,6 +444,343 @@ async function calculateSkins(players, tournamentId, allQuery, handicapIndices, 
     }
 
     return { skinsCount, skinsDetails };
+}
+
+// Helper function to handle Shamble and Scramble leaderboard
+async function handleTeamFormatLeaderboard(tournamentId, tournament, handicapIndices, parValues, gameScoring, allQuery, res) {
+    try {
+        const isTwoPersonFormat = gameScoring.includes('2 Person');
+
+        // Get all groups in the tournament
+        const groups = await allQuery(
+            'SELECT id, group_name FROM groups WHERE tournament_id = ?',
+            [tournamentId]
+        );
+
+        const leaderboardData = [];
+        const allTeams = []; // For skins calculation
+
+        for (const group of groups) {
+            // Get all players in this group ordered by id
+            const players = await allQuery(
+                'SELECT id, player_name, handicap FROM players WHERE group_id = ? ORDER BY id',
+                [group.id]
+            );
+
+            if (players.length === 0) continue;
+
+            // For 2 Person formats, split into teams of 2
+            if (isTwoPersonFormat) {
+                // Team 1: First 2 players
+                const team1 = players.slice(0, 2);
+                // Team 2: Last 2 players
+                const team2 = players.slice(Math.max(players.length - 2, 0));
+
+                if (team1.length > 0) {
+                    const teamData = await processTeamFormat(team1, group, handicapIndices, allQuery);
+                    if (teamData) {
+                        leaderboardData.push(teamData);
+                        allTeams.push({ ...teamData, team_id: `${group.id}-team1` });
+                    }
+                }
+                if (team2.length > 0 && team2[0].id !== team1[0].id) {
+                    const teamData = await processTeamFormat(team2, group, handicapIndices, allQuery);
+                    if (teamData) {
+                        leaderboardData.push(teamData);
+                        allTeams.push({ ...teamData, team_id: `${group.id}-team2` });
+                    }
+                }
+            }
+        }
+
+        // Sort by net score
+        leaderboardData.sort((a, b) => {
+            if (a.net_score !== b.net_score) return a.net_score - b.net_score;
+            return a.total_strokes - b.total_strokes;
+        });
+
+        // Calculate skins using team scores
+        const skins = calculateTeamSkins(allTeams, tournamentId, allQuery, handicapIndices, parValues);
+        const { skinsDetails } = await skins;
+
+        // Return with team skins data
+        res.json({
+            players: leaderboardData,
+            skinsDetails: skinsDetails,
+            isBestBall: true // Use same UI layout as best ball
+        });
+    } catch (error) {
+        console.error('Error calculating team format leaderboard:', error);
+        res.status(500).json({ error: 'Failed to calculate team format leaderboard' });
+    }
+}
+
+// Helper function to process a team for Shamble/Scramble formats
+async function processTeamFormat(players, group, handicapIndices, allQuery) {
+    // Get scores for first player (all players in team have same score)
+    const firstPlayer = players[0];
+    const scores = await allQuery(
+        'SELECT hole_number, strokes FROM scores WHERE player_id = ?',
+        [firstPlayer.id]
+    );
+
+    if (scores.length === 0) return null;
+
+    let totalGross = 0;
+    let totalNet = 0;
+    let holesCompleted = scores.length;
+
+    // Calculate net scores
+    for (const score of scores) {
+        const holeHandicapIndex = handicapIndices?.[score.hole_number] || score.hole_number;
+        // Use average team handicap for net calculation
+        const avgHandicap = Math.round(players.reduce((sum, p) => sum + (p.handicap || 0), 0) / players.length);
+        const strokesReceived = getStrokesForHole(avgHandicap, holeHandicapIndex);
+        const netScore = Math.max(0, score.strokes - strokesReceived);
+
+        totalGross += score.strokes;
+        totalNet += netScore;
+    }
+
+    return {
+        group_id: `${group.id}-team`,
+        group_name: group.group_name,
+        player_names: players.map(p => p.player_name).join(' & '),
+        total_strokes: totalGross,
+        net_score: totalNet,
+        holes_completed: holesCompleted,
+        skins: 0,
+        players: players // Include for skins calculation
+    };
+}
+
+// Helper function to calculate skins for team formats
+async function calculateTeamSkins(teams, tournamentId, allQuery, handicapIndices, parValues) {
+    const skinsCount = {};
+    const skinsDetails = [];
+
+    // Get all scores grouped by hole (use first player from each team)
+    const allScores = await allQuery(
+        'SELECT player_id, hole_number, strokes FROM scores WHERE tournament_id = ? ORDER BY hole_number',
+        [tournamentId]
+    );
+
+    // Group scores by hole and map to teams
+    const scoresByHole = {};
+    for (const score of allScores) {
+        if (!scoresByHole[score.hole_number]) {
+            scoresByHole[score.hole_number] = [];
+        }
+        scoresByHole[score.hole_number].push(score);
+    }
+
+    // Process each hole
+    for (let hole = 1; hole <= 18; hole++) {
+        const holeScores = scoresByHole[hole] || [];
+        const holePar = parValues?.[hole] || 4;
+
+        if (holeScores.length === 0) {
+            // Hole not played yet
+            skinsDetails.push({
+                hole,
+                status: 'unplayed'
+            });
+            continue;
+        }
+
+        // Calculate net scores for each team
+        const teamNetScores = [];
+        const processedTeams = new Set();
+
+        for (const team of teams) {
+            if (!team.players || processedTeams.has(team.team_id)) continue;
+
+            const teamKey = team.team_id;
+            processedTeams.add(teamKey);
+
+            // Get score from first player in team (all have same score)
+            const firstPlayer = team.players[0];
+            const holeScore = holeScores.find(s => s.player_id === firstPlayer.id);
+
+            if (holeScore) {
+                const holeHandicapIndex = handicapIndices?.[hole] || hole;
+                const avgHandicap = Math.round(team.players.reduce((sum, p) => sum + (p.handicap || 0), 0) / team.players.length);
+                const strokesReceived = getStrokesForHole(avgHandicap, holeHandicapIndex);
+                const netScore = holeScore.strokes - strokesReceived;
+
+                teamNetScores.push({
+                    team_name: team.player_names,
+                    net_score: netScore,
+                    score_name: getScoreName(netScore, holePar)
+                });
+            }
+        }
+
+        if (teamNetScores.length === 0) {
+            skinsDetails.push({
+                hole,
+                status: 'unplayed'
+            });
+            continue;
+        }
+
+        // Find the lowest net score
+        const lowestScore = Math.min(...teamNetScores.map(s => s.net_score));
+        const winners = teamNetScores.filter(s => s.net_score === lowestScore);
+
+        // If there's a clear winner (no tie), award 1 skin
+        if (winners.length === 1) {
+            skinsDetails.push({
+                hole,
+                status: 'won',
+                winner: winners[0].team_name,
+                scoreName: winners[0].score_name
+            });
+        } else {
+            // Tie - no skin awarded
+            const tieScoreName = getScoreName(lowestScore, holePar);
+            skinsDetails.push({
+                hole,
+                status: 'tied',
+                scoreName: tieScoreName,
+                tiedCount: winners.length
+            });
+        }
+    }
+
+    return { skinsCount, skinsDetails };
+}
+
+// Helper function to handle 1,2,3 format leaderboard
+async function handle123Leaderboard(tournamentId, tournament, handicapIndices, parValues, allQuery, res) {
+    try {
+        // Get all groups in the tournament
+        const groups = await allQuery(
+            'SELECT id, group_name FROM groups WHERE tournament_id = ?',
+            [tournamentId]
+        );
+
+        const leaderboardData = [];
+
+        for (const group of groups) {
+            // Get all players in this group
+            const players = await allQuery(
+                'SELECT id, player_name, handicap FROM players WHERE group_id = ?',
+                [group.id]
+            );
+
+            if (players.length === 0) continue;
+
+            // Get all scores for all players in this group
+            const allScores = await allQuery(
+                'SELECT player_id, hole_number, strokes FROM scores WHERE player_id IN (' +
+                players.map(p => p.id).join(',') + ') ORDER BY hole_number'
+            );
+
+            // Group scores by hole
+            const scoresByHole = {};
+            for (const score of allScores) {
+                if (!scoresByHole[score.hole_number]) {
+                    scoresByHole[score.hole_number] = [];
+                }
+                const player = players.find(p => p.id === score.player_id);
+                const holeHandicapIndex = handicapIndices?.[score.hole_number] || score.hole_number;
+                const strokesReceived = getStrokesForHole(player.handicap, holeHandicapIndex);
+
+                scoresByHole[score.hole_number].push({
+                    player_id: score.player_id,
+                    gross_strokes: score.strokes,
+                    net_strokes: score.strokes - strokesReceived
+                });
+            }
+
+            // Calculate 1,2,3 scores based on par values
+            let totalGross = 0;
+            let totalNet = 0;
+            let effectivePar = 0; // Track the adjusted par
+            let holesCompleted = 0;
+
+            for (let hole = 1; hole <= 18; hole++) {
+                const holeScores = scoresByHole[hole];
+                if (holeScores && holeScores.length > 0) {
+                    const holePar = parValues?.[hole] || 4;
+                    let scoresToCount;
+
+                    // Determine how many scores to count based on par
+                    if (holePar === 3) {
+                        scoresToCount = 1;
+                    } else if (holePar === 4) {
+                        scoresToCount = 2;
+                    } else if (holePar === 5) {
+                        scoresToCount = 3;
+                    } else {
+                        scoresToCount = 1; // Default for unusual pars
+                    }
+
+                    // Adjust par based on how many scores we're counting
+                    const adjustedHolePar = holePar * scoresToCount;
+                    effectivePar += adjustedHolePar;
+
+                    // Sort scores and take the best N scores
+                    const sortedGross = [...holeScores].sort((a, b) => a.gross_strokes - b.gross_strokes);
+                    const sortedNet = [...holeScores].sort((a, b) => a.net_strokes - b.net_strokes);
+
+                    // Sum the best N gross scores
+                    const bestGrossScores = sortedGross.slice(0, Math.min(scoresToCount, sortedGross.length));
+                    const holeGross = bestGrossScores.reduce((sum, s) => sum + s.gross_strokes, 0);
+
+                    // Sum the best N net scores
+                    const bestNetScores = sortedNet.slice(0, Math.min(scoresToCount, sortedNet.length));
+                    const holeNet = bestNetScores.reduce((sum, s) => sum + s.net_strokes, 0);
+
+                    totalGross += holeGross;
+                    totalNet += holeNet;
+                    holesCompleted++;
+                }
+            }
+
+            // Add group to leaderboard
+            leaderboardData.push({
+                group_id: group.id,
+                group_name: group.group_name,
+                player_names: players.map(p => p.player_name).join(', '),
+                total_strokes: totalGross,
+                net_score: totalNet,
+                holes_completed: holesCompleted,
+                effective_par: effectivePar, // Include adjusted par for 1,2,3 format
+                skins: 0
+            });
+        }
+
+        // Sort by net score
+        leaderboardData.sort((a, b) => {
+            if (a.net_score !== b.net_score) return a.net_score - b.net_score;
+            return a.total_strokes - b.total_strokes;
+        });
+
+        // Calculate skins using individual player scores
+        const allPlayers = [];
+        for (const group of groups) {
+            const players = await allQuery(
+                'SELECT id as player_id, player_name, handicap FROM players WHERE group_id = ?',
+                [group.id]
+            );
+            allPlayers.push(...players);
+        }
+
+        const skins = calculateSkins(allPlayers, tournamentId, allQuery, handicapIndices, parValues);
+        const { skinsDetails } = await skins;
+
+        // Return with individual skins data
+        res.json({
+            players: leaderboardData,
+            skinsDetails: skinsDetails,
+            isBestBall: true // Use same UI layout as best ball
+        });
+    } catch (error) {
+        console.error('Error calculating 1,2,3 leaderboard:', error);
+        res.status(500).json({ error: 'Failed to calculate 1,2,3 leaderboard' });
+    }
 }
 
 module.exports = router;

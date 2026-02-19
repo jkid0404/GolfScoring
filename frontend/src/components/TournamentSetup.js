@@ -10,9 +10,9 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
     const [parValues, setParValues] = useState({});
     const [handicapIndices, setHandicapIndices] = useState({});
     const [formData, setFormData] = useState({
-        name: '',
         date: new Date().toISOString().split('T')[0],
         course_name: '',
+        game_scoring: 'Individual',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -53,9 +53,9 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
             const tournament = await createTournament(formData);
             setTournaments([tournament, ...tournaments]);
             setFormData({
-                name: '',
                 date: new Date().toISOString().split('T')[0],
                 course_name: '',
+                game_scoring: 'Individual',
             });
             setShowCreateForm(false);
             onTournamentSelected(tournament);
@@ -107,13 +107,13 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
 
         try {
             const updatedTournament = await updateTournament(selectedTournament.id, {
-                name: selectedTournament.name,
                 date: selectedTournament.date,
                 course_name: selectedTournament.course_name,
                 par_values: parValues,
                 handicap_indices: handicapIndices,
                 course_rating: parseFloat(selectedTournament.course_rating) || 72.0,
                 slope: parseInt(selectedTournament.slope) || 113,
+                game_scoring: selectedTournament.game_scoring || 'Individual',
             });
 
             // Update tournament in list
@@ -154,12 +154,12 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                                 className="tournament-card"
                                 onClick={() => onTournamentSelected(tournament)}
                             >
-                                <h3>{tournament.name}</h3>
-                                <p className="tournament-date">
-                                    {new Date(tournament.date).toLocaleDateString()}
-                                </p>
+                                <h3>{new Date(tournament.date).toLocaleDateString()}</h3>
                                 {tournament.course_name && (
                                     <p className="tournament-course">{tournament.course_name}</p>
+                                )}
+                                {tournament.game_scoring && (
+                                    <p className="tournament-scoring">{tournament.game_scoring}</p>
                                 )}
                             </div>
                         ))}
@@ -175,18 +175,6 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                 <div className="create-tournament-form">
                     <h2>Create New Tournament</h2>
                     <form onSubmit={handleSubmit}>
-                        <div className="form-group">
-                            <label htmlFor="name">Tournament Name *</label>
-                            <input
-                                type="text"
-                                id="name"
-                                name="name"
-                                value={formData.name}
-                                onChange={handleInputChange}
-                                required
-                            />
-                        </div>
-
                         <div className="form-group">
                             <label htmlFor="date">Date *</label>
                             <input
@@ -208,6 +196,24 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                                 value={formData.course_name}
                                 onChange={handleInputChange}
                             />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="game_scoring">Game Scoring *</label>
+                            <select
+                                id="game_scoring"
+                                name="game_scoring"
+                                value={formData.game_scoring}
+                                onChange={handleInputChange}
+                                required
+                            >
+                                <option value="Individual">Individual</option>
+                                <option value="4 Person Best Ball">4 Person Best Ball</option>
+                                <option value="2 Person Best Ball">2 Person Best Ball</option>
+                                <option value="2 Person Shamble">2 Person Shamble</option>
+                                <option value="2 Person Scramble">2 Person Scramble</option>
+                                <option value="1,2,3">1,2,3</option>
+                            </select>
                         </div>
 
                         <div className="form-actions">
@@ -233,19 +239,6 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                     <form onSubmit={handleSavePar}>
                         <div className="tournament-info-grid">
                             <div className="form-group">
-                                <label htmlFor="tournamentName">Tournament Name</label>
-                                <input
-                                    type="text"
-                                    id="tournamentName"
-                                    value={selectedTournament?.name || ''}
-                                    onChange={(e) => setSelectedTournament({
-                                        ...selectedTournament,
-                                        name: e.target.value
-                                    })}
-                                />
-                            </div>
-
-                            <div className="form-group">
                                 <label htmlFor="tournamentDate">Date</label>
                                 <input
                                     type="date"
@@ -269,6 +262,25 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                                         course_name: e.target.value
                                     })}
                                 />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="gameScoring">Game Scoring</label>
+                                <select
+                                    id="gameScoring"
+                                    value={selectedTournament?.game_scoring || 'Individual'}
+                                    onChange={(e) => setSelectedTournament({
+                                        ...selectedTournament,
+                                        game_scoring: e.target.value
+                                    })}
+                                >
+                                    <option value="Individual">Individual</option>
+                                    <option value="4 Person Best Ball">4 Person Best Ball</option>
+                                    <option value="2 Person Best Ball">2 Person Best Ball</option>
+                                    <option value="2 Person Shamble">2 Person Shamble</option>
+                                    <option value="2 Person Scramble">2 Person Scramble</option>
+                                    <option value="1,2,3">1,2,3</option>
+                                </select>
                             </div>
                         </div>
 
