@@ -11,7 +11,8 @@
       "Bash(start http://localhost:3000)",
       "Bash(taskkill:*)",
       "Bash(timeout:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(xargs:*)"
     ]
   }
 }

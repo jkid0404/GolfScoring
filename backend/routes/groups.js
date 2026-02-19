@@ -66,4 +66,25 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Delete a group (cascade deletes players and scores)
+router.delete('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Delete scores for all players in this group
+        await runQuery('DELETE FROM scores WHERE group_id = ?', [id]);
+
+        // Delete all players in this group
+        await runQuery('DELETE FROM players WHERE group_id = ?', [id]);
+
+        // Delete the group
+        await runQuery('DELETE FROM groups WHERE id = ?', [id]);
+
+        res.json({ message: 'Group deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting group:', error);
+        res.status(500).json({ error: 'Failed to delete group' });
+    }
+});
+
 module.exports = router;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, updatePlayer, deletePlayer, deleteTournament } from '../services/api';
+import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, updatePlayer, deletePlayer, deleteTournament, getAllMasterPlayers, createMasterPlayer, deleteGroup } from '../services/api';
 import './GroupSelection.css';
 
 const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard, onEditHoles }) => {
@@ -15,8 +15,15 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // Master players and player selection for group creation
+    const [masterPlayers, setMasterPlayers] = useState([]);
+    const [selectedPlayers, setSelectedPlayers] = useState(['', '', '', '']); // 4 player slots
+    const [showAddNewPlayer, setShowAddNewPlayer] = useState(false);
+    const [newMasterPlayerForm, setNewMasterPlayerForm] = useState({ player_name: '', ghin: '', handicap: '' });
+
     useEffect(() => {
         loadGroups();
+        loadMasterPlayers();
     }, [tournament.id]);
 
     const loadGroups = async () => {
@@ -26,6 +33,53 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         } catch (err) {
             console.error('Error loading groups:', err);
             setError('Failed to load groups');
+        }
+    };
+
+    const loadMasterPlayers = async () => {
+        try {
+            const data = await getAllMasterPlayers();
+            setMasterPlayers(data);
+        } catch (err) {
+            console.error('Error loading master players:', err);
+            // Don't set error state - just log it and continue with empty list
+            setMasterPlayers([]);
+        }
+    };
+
+    const handlePlayerSelection = (index, value) => {
+        if (value === 'add_new') {
+            setShowAddNewPlayer(true);
+        } else {
+            const newSelection = [...selectedPlayers];
+            newSelection[index] = value;
+            setSelectedPlayers(newSelection);
+        }
+    };
+
+    const handleAddNewMasterPlayer = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+
+        try {
+            await createMasterPlayer({
+                player_name: newMasterPlayerForm.player_name,
+                ghin: newMasterPlayerForm.ghin,
+                handicap: parseInt(newMasterPlayerForm.handicap) || 0,
+            });
+
+            // Reload master players
+            await loadMasterPlayers();
+
+            // Reset form and hide dialog
+            setNewMasterPlayerForm({ player_name: '', ghin: '', handicap: '' });
+            setShowAddNewPlayer(false);
+        } catch (err) {
+            console.error('Error creating master player:', err);
+            setError('Failed to create master player');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -53,16 +107,31 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                 group_name: groupName,
             });
 
-            // Automatically add 4 default players
-            for (let i = 1; i <= 4; i++) {
-                await addPlayer({
-                    group_id: group.id,
-                    player_name: `Player ${i}`,
-                    handicap: 0,
-                });
+            // Add selected players to the group
+            for (let i = 0; i < selectedPlayers.length; i++) {
+                const masterPlayerId = selectedPlayers[i];
+                if (masterPlayerId) {
+                    // Find the master player
+                    const masterPlayer = masterPlayers.find(p => p.id === parseInt(masterPlayerId));
+                    if (masterPlayer) {
+                        await addPlayer({
+                            group_id: group.id,
+                            player_name: masterPlayer.player_name,
+                            handicap: masterPlayer.handicap || 0,
+                        });
+                    }
+                } else {
+                    // If no player selected, add a default placeholder
+                    await addPlayer({
+                        group_id: group.id,
+                        player_name: `Player ${i + 1}`,
+                        handicap: 0,
+                    });
+                }
             }
 
             setGroupName('');
+            setSelectedPlayers(['', '', '', '']);
             setShowCreateGroup(false);
             loadGroups();
         } catch (err) {
@@ -169,6 +238,30 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         }
     };
 
+    const handleDeleteGroup = async () => {
+        if (!window.confirm(`Are you sure you want to delete ${selectedGroup?.group_name}? This will delete all players and scores associated with this group.`)) {
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            await deleteGroup(selectedGroup.id);
+
+            // Close manage players view and reload groups
+            setShowManagePlayers(false);
+            setSelectedGroup(null);
+            setGroupPlayers([]);
+            loadGroups();
+        } catch (err) {
+            console.error('Error deleting group:', err);
+            setError('Failed to delete group');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSelectGroup = async (group) => {
         try {
             const players = await getPlayersByGroup(group.id);
@@ -247,36 +340,120 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
             ) : showCreateGroup ? (
                 <div className="create-form">
                     <h3>Create New Group</h3>
-                    <p className="form-note">4 default players will be added automatically</p>
-                    <form onSubmit={handleCreateGroup}>
-                        <div className="form-group">
-                            <label htmlFor="groupName">Group Name *</label>
-                            <input
-                                type="text"
-                                id="groupName"
-                                value={groupName}
-                                onChange={(e) => setGroupName(e.target.value)}
-                                placeholder="e.g., Morning Group 1"
-                                required
-                            />
+
+                    {showAddNewPlayer ? (
+                        <div>
+                            <h4>Add New Player</h4>
+                            <form onSubmit={handleAddNewMasterPlayer}>
+                                <div className="form-group">
+                                    <label htmlFor="newPlayerName">Player Name *</label>
+                                    <input
+                                        type="text"
+                                        id="newPlayerName"
+                                        value={newMasterPlayerForm.player_name}
+                                        onChange={(e) => setNewMasterPlayerForm({ ...newMasterPlayerForm, player_name: e.target.value })}
+                                        placeholder="Player Name"
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="newPlayerGhin">GHIN</label>
+                                    <input
+                                        type="text"
+                                        id="newPlayerGhin"
+                                        value={newMasterPlayerForm.ghin}
+                                        onChange={(e) => setNewMasterPlayerForm({ ...newMasterPlayerForm, ghin: e.target.value })}
+                                        placeholder="GHIN Number (optional)"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="newPlayerHandicap">Handicap *</label>
+                                    <input
+                                        type="number"
+                                        id="newPlayerHandicap"
+                                        value={newMasterPlayerForm.handicap}
+                                        onChange={(e) => setNewMasterPlayerForm({ ...newMasterPlayerForm, handicap: e.target.value })}
+                                        placeholder="Handicap"
+                                        required
+                                    />
+                                </div>
+                                <div className="form-actions">
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        onClick={() => {
+                                            setShowAddNewPlayer(false);
+                                            setNewMasterPlayerForm({ player_name: '', ghin: '', handicap: '' });
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        disabled={loading}
+                                    >
+                                        {loading ? 'Adding...' : 'Add Player'}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        <div className="form-actions">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => setShowCreateGroup(false)}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                className="btn btn-primary"
-                                disabled={loading}
-                            >
-                                {loading ? 'Creating...' : 'Create Group'}
-                            </button>
-                        </div>
-                    </form>
+                    ) : (
+                        <form onSubmit={handleCreateGroup}>
+                            <div className="form-group">
+                                <label htmlFor="groupName">Group Name *</label>
+                                <input
+                                    type="text"
+                                    id="groupName"
+                                    value={groupName}
+                                    onChange={(e) => setGroupName(e.target.value)}
+                                    placeholder="e.g., Morning Group 1"
+                                    required
+                                />
+                            </div>
+
+                            <h4>Select Players</h4>
+                            {selectedPlayers.map((selectedPlayerId, index) => (
+                                <div key={index} className="form-group">
+                                    <label htmlFor={`player${index + 1}`}>Player {index + 1}</label>
+                                    <select
+                                        id={`player${index + 1}`}
+                                        value={selectedPlayerId}
+                                        onChange={(e) => handlePlayerSelection(index, e.target.value)}
+                                        className="player-select"
+                                    >
+                                        <option value="">-- Select Player --</option>
+                                        {masterPlayers.map((player) => (
+                                            <option key={player.id} value={player.id}>
+                                                {player.player_name} (HCP: {player.handicap || 0}{player.ghin ? `, GHIN: ${player.ghin}` : ''})
+                                            </option>
+                                        ))}
+                                        <option value="add_new">+ Add New Player...</option>
+                                    </select>
+                                </div>
+                            ))}
+
+                            <div className="form-actions">
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => {
+                                        setShowCreateGroup(false);
+                                        setSelectedPlayers(['', '', '', '']);
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Creating...' : 'Create Group'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
                 </div>
             ) : (
                 <div className="manage-players">
@@ -385,6 +562,22 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                 {loading ? 'Adding...' : 'Add Player'}
                             </button>
                         </form>
+                    </div>
+
+                    <div className="manage-players-actions">
+                        <button
+                            className="btn btn-secondary"
+                            onClick={handleCloseManagePlayers}
+                        >
+                            Back
+                        </button>
+                        <button
+                            className="btn btn-delete"
+                            onClick={handleDeleteGroup}
+                            disabled={loading}
+                        >
+                            Delete Group
+                        </button>
                     </div>
                 </div>
             )}

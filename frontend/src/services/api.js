@@ -51,6 +51,11 @@ export const getGroup = async (id) => {
     return response.data;
 };
 
+export const deleteGroup = async (id) => {
+    const response = await api.delete(`/groups/${id}`);
+    return response.data;
+};
+
 // Player APIs
 export const addPlayer = async (playerData) => {
     const response = await api.post('/players', playerData);
@@ -116,6 +121,32 @@ export const updateCourse = async (id, courseData) => {
 
 export const deleteCourse = async (id) => {
     const response = await api.delete(`/courses/${id}`);
+    return response.data;
+};
+
+// Master Players APIs
+export const getAllMasterPlayers = async () => {
+    const response = await api.get('/players-master');
+    return response.data;
+};
+
+export const getMasterPlayer = async (id) => {
+    const response = await api.get(`/players-master/${id}`);
+    return response.data;
+};
+
+export const createMasterPlayer = async (playerData) => {
+    const response = await api.post('/players-master', playerData);
+    return response.data;
+};
+
+export const updateMasterPlayer = async (id, playerData) => {
+    const response = await api.put(`/players-master/${id}`, playerData);
+    return response.data;
+};
+
+export const deleteMasterPlayer = async (id) => {
+    const response = await api.delete(`/players-master/${id}`);
     return response.data;
 };
 

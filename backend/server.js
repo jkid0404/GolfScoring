@@ -10,6 +10,7 @@ const groupsRouter = require('./routes/groups');
 const playersRouter = require('./routes/players');
 const scoresRouter = require('./routes/scores');
 const coursesRouter = require('./routes/courses');
+const playersMasterRouter = require('./routes/playersMaster');
 
 const app = express();
 const server = http.createServer(app);
@@ -35,6 +36,7 @@ app.use('/api/groups', groupsRouter);
 app.use('/api/players', playersRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/courses', coursesRouter);
+app.use('/api/players-master', playersMasterRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

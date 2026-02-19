@@ -88,10 +88,20 @@ const initializeDatabase = (database) => {
                 if (err) {
                     console.error('Error creating scores table:', err);
                     reject(err);
-                } else {
-                    console.log('Database tables initialized successfully');
-                    resolve();
                 }
+            });
+
+            // Create players_master table (master list of all players)
+            database.run(`
+                CREATE TABLE IF NOT EXISTS players_master (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    player_name TEXT NOT NULL,
+                    ghin TEXT,
+                    handicap INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `, (err) => {
+                if (err) console.error('Error creating players_master table:', err);
             });
 
             // Create courses table
@@ -176,6 +186,18 @@ const initializeDatabase = (database) => {
                 if (err && !err.message.includes('duplicate column name')) {
                     console.error('Error adding game_scoring column:', err);
                 }
+            });
+
+            // Add handicap column to players_master if it doesn't exist
+            database.run(`
+                ALTER TABLE players_master ADD COLUMN handicap INTEGER DEFAULT 0
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding handicap column to players_master:', err);
+                }
+                // Resolve after all tables and migrations are complete
+                console.log('Database tables initialized successfully');
+                resolve();
             });
         });
     });
