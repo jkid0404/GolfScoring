@@ -4,7 +4,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 require('dotenv').config();
 
-const { getDatabase } = require('./config/database');
+const { getDatabase, initializeDatabase } = require('./config/databaseAdapter');
 const tournamentsRouter = require('./routes/tournaments');
 const groupsRouter = require('./routes/groups');
 const playersRouter = require('./routes/players');
@@ -67,7 +67,12 @@ io.on('connection', (socket) => {
 // Initialize database and start server
 (async () => {
     try {
-        await getDatabase();
+        // Use initializeDatabase if available (Azure SQL), otherwise use getDatabase (SQLite)
+        if (initializeDatabase) {
+            await initializeDatabase();
+        } else {
+            await getDatabase();
+        }
         console.log('Database initialized successfully!');
     } catch (error) {
         console.error('Database initialization error:', error);
@@ -78,5 +83,6 @@ io.on('connection', (socket) => {
         console.log(`Server running on port ${PORT}`);
         console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+        console.log(`Database type: ${process.env.DB_TYPE || 'sqlite'}`);
     });
 })();

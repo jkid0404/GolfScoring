@@ -37,3 +37,12 @@ lerna-debug.log*
 # Misc
 .cache
 .parcel-cache
+nul
+
+# Database
+*.db
+golf_scoring.db
+
+# Azure
+.azure/
+*.zip

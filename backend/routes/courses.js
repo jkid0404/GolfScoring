@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { runQuery, getQuery, allQuery } = require('../config/database');
+const { runQuery, getQuery, allQuery } = require('../config/databaseAdapter');
 
 // Get all courses
 router.get('/', async (req, res) => {

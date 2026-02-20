@@ -12,7 +12,13 @@
       "Bash(taskkill:*)",
       "Bash(timeout:*)",
       "Bash(ping:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(ipconfig:*)",
+      "Bash(grep:*)",
+      "Bash(for file in courses.js groups.js players.js playersMaster.js scores.js tournaments.js)",
+      "Bash(do sed -i \"s|require\\(''../config/database''\\)|require\\(''../config/databaseAdapter''\\)|g\" \"$file\")",
+      "Bash(done)",
+      "Bash(test:*)"
     ]
   }
 }
