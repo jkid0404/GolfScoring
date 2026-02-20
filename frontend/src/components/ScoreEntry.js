@@ -47,6 +47,7 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
 
     useEffect(() => {
         loadAllScores();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [group.players]);
 
     const loadAllScores = async () => {
@@ -93,6 +94,7 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
             });
             setHoleScores(currentHoleScores);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentHole, allScores, group.players, isTeamFormat]);
 
     const handleScoreChange = (playerId, value) => {

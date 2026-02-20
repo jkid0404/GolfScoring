@@ -64,21 +64,6 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
         });
     };
 
-    const handleDeleteTournament = async (tournament, e) => {
-        e.stopPropagation(); // Prevent card click
-
-        if (window.confirm(`Are you sure you want to delete the tournament from ${new Date(tournament.date).toLocaleDateString()}? This will delete all groups, players, and scores associated with this tournament.`)) {
-            try {
-                await deleteTournament(tournament.id);
-                // Remove from local state
-                setTournaments(tournaments.filter(t => t.id !== tournament.id));
-            } catch (err) {
-                console.error('Error deleting tournament:', err);
-                setError('Failed to delete tournament');
-            }
-        }
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);

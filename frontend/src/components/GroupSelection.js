@@ -24,6 +24,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
     useEffect(() => {
         loadGroups();
         loadMasterPlayers();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tournament.id]);
 
     const loadGroups = async () => {

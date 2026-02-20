@@ -20,7 +20,7 @@ const Leaderboard = ({ tournament, onBack }) => {
         loadTournamentData();
 
         // Connect to socket and join tournament room
-        const socket = socketService.connect();
+        socketService.connect();
         setIsConnected(socketService.isConnected());
         socketService.joinTournament(tournament.id);
 
@@ -37,6 +37,7 @@ const Leaderboard = ({ tournament, onBack }) => {
             socketService.offScoreUpdate(handleScoreUpdate);
             socketService.leaveTournament(tournament.id);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tournament.id]);
 
     const loadTournamentData = async () => {
