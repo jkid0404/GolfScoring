@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createTournament, getAllTournaments, updateTournament, deleteTournament, getAllCourses, createCourse } from '../services/api';
+import { createTournament, getAllTournaments, updateTournament, getAllCourses, createCourse } from '../services/api';
 import './TournamentSetup.css';
 
 const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament }) => {
