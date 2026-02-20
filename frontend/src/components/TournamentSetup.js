@@ -41,19 +41,23 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
     const loadTournaments = async () => {
         try {
             const data = await getAllTournaments();
-            setTournaments(data);
+            // Ensure data is an array
+            setTournaments(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error('Error loading tournaments:', err);
             setError('Failed to load tournaments');
+            setTournaments([]); // Set to empty array on error
         }
     };
 
     const loadCourses = async () => {
         try {
             const data = await getAllCourses();
-            setCourses(data);
+            // Ensure data is an array
+            setCourses(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error('Error loading courses:', err);
+            setCourses([]); // Set to empty array on error
         }
     };
 
