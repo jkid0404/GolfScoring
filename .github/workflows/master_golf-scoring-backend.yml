@@ -7,6 +7,8 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'backend/**'
   workflow_dispatch:
 
 jobs:
@@ -62,4 +64,5 @@ jobs:
           app-name: 'golf-scoring-backend'
           slot-name: 'Production'
           package: .
+
           
