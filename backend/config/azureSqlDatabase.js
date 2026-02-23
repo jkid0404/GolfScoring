@@ -1,22 +1,56 @@
 const sql = require('mssql');
+const { DefaultAzureCredential } = require('@azure/identity');
 require('dotenv').config();
 
-const config = {
-    server: process.env.DB_SERVER,
-    database: process.env.DB_DATABASE,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    port: parseInt(process.env.DB_PORT) || 1433,
-    options: {
-        encrypt: process.env.DB_ENCRYPT === 'true',
-        trustServerCertificate: false
-    },
-    pool: {
-        max: 10,
-        min: 0,
-        idleTimeoutMillis: 30000
-    }
-};
+// Check if using Managed Identity (no username/password)
+const useManagedIdentity = !process.env.DB_USER || !process.env.DB_PASSWORD;
+
+let config;
+
+if (useManagedIdentity) {
+    // Use Managed Identity (Azure AD authentication)
+    config = {
+        server: process.env.DB_SERVER,
+        database: process.env.DB_DATABASE,
+        port: parseInt(process.env.DB_PORT) || 1433,
+        authentication: {
+            type: 'azure-active-directory-default'
+        },
+        options: {
+            encrypt: true,
+            trustServerCertificate: false,
+            enableArithAbort: true,
+            connectTimeout: 30000,
+            requestTimeout: 30000
+        },
+        pool: {
+            max: 10,
+            min: 0,
+            idleTimeoutMillis: 30000
+        }
+    };
+} else {
+    // Use SQL authentication (username/password)
+    config = {
+        server: process.env.DB_SERVER,
+        database: process.env.DB_DATABASE,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        port: parseInt(process.env.DB_PORT) || 1433,
+        options: {
+            encrypt: true,
+            trustServerCertificate: false,
+            enableArithAbort: true,
+            connectTimeout: 30000,
+            requestTimeout: 30000
+        },
+        pool: {
+            max: 10,
+            min: 0,
+            idleTimeoutMillis: 30000
+        }
+    };
+}
 
 let poolPromise;
 
