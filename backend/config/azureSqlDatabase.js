@@ -5,57 +5,68 @@ require('dotenv').config();
 // Check if using Managed Identity (no username/password)
 const useManagedIdentity = !process.env.DB_USER || !process.env.DB_PASSWORD;
 
-let config;
-
-if (useManagedIdentity) {
-    // Use Managed Identity (Azure AD authentication)
-    config = {
-        server: process.env.DB_SERVER,
-        database: process.env.DB_DATABASE,
-        port: parseInt(process.env.DB_PORT) || 1433,
-        authentication: {
-            type: 'azure-active-directory-default'
-        },
-        options: {
-            encrypt: true,
-            trustServerCertificate: false,
-            enableArithAbort: true,
-            connectTimeout: 30000,
-            requestTimeout: 30000
-        },
-        pool: {
-            max: 10,
-            min: 0,
-            idleTimeoutMillis: 30000
-        }
-    };
-} else {
-    // Use SQL authentication (username/password)
-    config = {
-        server: process.env.DB_SERVER,
-        database: process.env.DB_DATABASE,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        port: parseInt(process.env.DB_PORT) || 1433,
-        options: {
-            encrypt: true,
-            trustServerCertificate: false,
-            enableArithAbort: true,
-            connectTimeout: 30000,
-            requestTimeout: 30000
-        },
-        pool: {
-            max: 10,
-            min: 0,
-            idleTimeoutMillis: 30000
-        }
-    };
-}
-
 let poolPromise;
+let credential;
 
 const getPool = async () => {
     if (!poolPromise) {
+        let config;
+
+        if (useManagedIdentity) {
+            // Use Managed Identity (Azure AD authentication)
+            // Get access token for Azure SQL Database
+            if (!credential) {
+                credential = new DefaultAzureCredential();
+            }
+
+            const tokenResponse = await credential.getToken('https://database.windows.net/.default');
+
+            config = {
+                server: process.env.DB_SERVER,
+                database: process.env.DB_DATABASE,
+                port: parseInt(process.env.DB_PORT) || 1433,
+                authentication: {
+                    type: 'azure-active-directory-access-token',
+                    options: {
+                        token: tokenResponse.token
+                    }
+                },
+                options: {
+                    encrypt: true,
+                    trustServerCertificate: false,
+                    enableArithAbort: true,
+                    connectTimeout: 30000,
+                    requestTimeout: 30000
+                },
+                pool: {
+                    max: 10,
+                    min: 0,
+                    idleTimeoutMillis: 30000
+                }
+            };
+        } else {
+            // Use SQL authentication (username/password)
+            config = {
+                server: process.env.DB_SERVER,
+                database: process.env.DB_DATABASE,
+                user: process.env.DB_USER,
+                password: process.env.DB_PASSWORD,
+                port: parseInt(process.env.DB_PORT) || 1433,
+                options: {
+                    encrypt: true,
+                    trustServerCertificate: false,
+                    enableArithAbort: true,
+                    connectTimeout: 30000,
+                    requestTimeout: 30000
+                },
+                pool: {
+                    max: 10,
+                    min: 0,
+                    idleTimeoutMillis: 30000
+                }
+            };
+        }
+
         poolPromise = sql.connect(config);
     }
     return poolPromise;
