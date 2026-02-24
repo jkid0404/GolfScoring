@@ -22,6 +22,11 @@ router.post('/', async (req, res) => {
         );
 
         const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [result.id]);
+
+        if (!tournament) {
+            return res.status(500).json({ error: 'Tournament created but could not be retrieved' });
+        }
+
         if (tournament.par_values) {
             tournament.par_values = JSON.parse(tournament.par_values);
         }

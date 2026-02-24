@@ -88,6 +88,19 @@ const runQuery = async (query, params = []) => {
             azureQuery = azureQuery.replace('?', `@param${index}`);
         });
 
+        // For INSERT queries, add OUTPUT clause to return the inserted ID
+        if (azureQuery.trim().toUpperCase().startsWith('INSERT')) {
+            // Check if OUTPUT clause already exists
+            if (!azureQuery.toUpperCase().includes('OUTPUT')) {
+                // Find the position to insert OUTPUT clause (before VALUES)
+                const valuesMatch = azureQuery.match(/\)\s+VALUES\s+\(/i);
+                if (valuesMatch) {
+                    const insertPos = valuesMatch.index + valuesMatch[0].indexOf('VALUES');
+                    azureQuery = azureQuery.slice(0, insertPos) + 'OUTPUT INSERTED.id ' + azureQuery.slice(insertPos);
+                }
+            }
+        }
+
         const result = await request.query(azureQuery);
         return {
             id: result.recordset && result.recordset[0] ? result.recordset[0].id : null,
