@@ -2,6 +2,22 @@ const express = require('express');
 const router = express.Router();
 const { runQuery, getQuery, allQuery } = require('../config/databaseAdapter');
 
+// Helper function to safely parse JSON
+const safeJsonParse = (value, fieldName, defaultValue = {}) => {
+    if (!value) return defaultValue;
+    if (typeof value === 'object') return value; // Already parsed
+
+    try {
+        // Clean control characters before parsing
+        const cleaned = value.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+        return JSON.parse(cleaned);
+    } catch (error) {
+        console.error(`Error parsing ${fieldName}:`, error.message);
+        console.error(`Raw value (first 200 chars):`, value.substring(0, 200));
+        return defaultValue;
+    }
+};
+
 // Get all courses
 router.get('/', async (req, res) => {
     try {
@@ -9,8 +25,8 @@ router.get('/', async (req, res) => {
 
         // Parse JSON fields for each course
         courses.forEach(course => {
-            course.par_values = JSON.parse(course.par_values);
-            course.handicap_indices = JSON.parse(course.handicap_indices);
+            course.par_values = safeJsonParse(course.par_values, 'par_values', {});
+            course.handicap_indices = safeJsonParse(course.handicap_indices, 'handicap_indices', {});
         });
 
         res.json(courses);
@@ -31,8 +47,8 @@ router.get('/:id', async (req, res) => {
         }
 
         // Parse JSON fields
-        course.par_values = JSON.parse(course.par_values);
-        course.handicap_indices = JSON.parse(course.handicap_indices);
+        course.par_values = safeJsonParse(course.par_values, 'par_values', {});
+        course.handicap_indices = safeJsonParse(course.handicap_indices, 'handicap_indices', {});
 
         res.json(course);
     } catch (error) {
@@ -68,8 +84,8 @@ router.post('/', async (req, res) => {
         );
 
         const newCourse = await getQuery('SELECT * FROM courses WHERE id = ?', [result.id]);
-        newCourse.par_values = JSON.parse(newCourse.par_values);
-        newCourse.handicap_indices = JSON.parse(newCourse.handicap_indices);
+        newCourse.par_values = safeJsonParse(newCourse.par_values, 'par_values', {});
+        newCourse.handicap_indices = safeJsonParse(newCourse.handicap_indices, 'handicap_indices', {});
 
         res.status(201).json(newCourse);
     } catch (error) {
@@ -97,8 +113,8 @@ router.put('/:id', async (req, res) => {
         );
 
         const updatedCourse = await getQuery('SELECT * FROM courses WHERE id = ?', [id]);
-        updatedCourse.par_values = JSON.parse(updatedCourse.par_values);
-        updatedCourse.handicap_indices = JSON.parse(updatedCourse.handicap_indices);
+        updatedCourse.par_values = safeJsonParse(updatedCourse.par_values, 'par_values', {});
+        updatedCourse.handicap_indices = safeJsonParse(updatedCourse.handicap_indices, 'handicap_indices', {});
 
         res.json(updatedCourse);
     } catch (error) {
