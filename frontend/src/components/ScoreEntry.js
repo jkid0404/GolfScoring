@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { submitScore, getPlayerScores } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import './ScoreEntry.css';
 
 const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
+    const { logout, userType } = useAuth();
     const [currentHole, setCurrentHole] = useState(1);
     const [holeScores, setHoleScores] = useState({});
     const [allScores, setAllScores] = useState({});
@@ -46,11 +48,16 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
     };
 
     useEffect(() => {
-        loadAllScores();
+        if (group?.players) {
+            loadAllScores();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [group.players]);
+    }, [group?.players]);
 
     const loadAllScores = async () => {
+        if (!group?.players || !Array.isArray(group.players)) {
+            return;
+        }
         try {
             const scoresData = {};
             for (const player of group.players) {
@@ -248,13 +255,40 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
         return `${diff}`;
     };
 
+    // Safety check: ensure group has players array
+    if (!group || !group.players || !Array.isArray(group.players)) {
+        return (
+            <div className="score-entry">
+                <div className="header">
+                    <button className="btn btn-back" onClick={logout}>
+                        Logout
+                    </button>
+                </div>
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                    <h3>Error: Group data is incomplete</h3>
+                    <p>Please logout and login again with your group code.</p>
+                    <button className="btn btn-primary" onClick={logout} style={{ marginTop: '10px' }}>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (showSummary) {
         return (
             <div className="score-entry">
                 <div className="header">
-                    <button className="btn btn-back" onClick={onBack}>
-                        Back to Groups
-                    </button>
+                    {userType === 'admin' && onBack && (
+                        <button className="btn btn-back" onClick={onBack}>
+                            Back to Groups
+                        </button>
+                    )}
+                    {userType !== 'admin' && !onBack && (
+                        <button className="btn btn-back" onClick={logout}>
+                            Logout
+                        </button>
+                    )}
                     <div className="header-info">
                         <h2>Round Summary</h2>
                     </div>
@@ -334,9 +368,16 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
     return (
         <div className="score-entry">
             <div className="header">
-                <button className="btn btn-back" onClick={onBack}>
-                    Back
-                </button>
+                {userType === 'admin' && onBack && (
+                    <button className="btn btn-back" onClick={onBack}>
+                        Back
+                    </button>
+                )}
+                {userType !== 'admin' && !onBack && (
+                    <button className="btn btn-back" onClick={logout}>
+                        Logout
+                    </button>
+                )}
                 <button className="btn btn-primary" onClick={onShowLeaderboard}>
                     Leaderboard
                 </button>

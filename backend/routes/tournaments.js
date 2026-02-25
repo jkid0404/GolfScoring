@@ -5,10 +5,20 @@ const { runQuery, getQuery, allQuery } = require('../config/databaseAdapter');
 // Create a new tournament
 router.post('/', async (req, res) => {
     try {
-        const { date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring } = req.body;
+        const { date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring, code } = req.body;
 
         if (!date) {
             return res.status(400).json({ error: 'Date is required' });
+        }
+
+        if (!code) {
+            return res.status(400).json({ error: 'Tournament code is required' });
+        }
+
+        // Check if code already exists
+        const existingCode = await getQuery('SELECT id FROM tournaments WHERE code = ?', [code]);
+        if (existingCode) {
+            return res.status(400).json({ error: 'Tournament code already used. Choose another code.' });
         }
 
         // Use date as the name
@@ -17,8 +27,8 @@ router.post('/', async (req, res) => {
         const handicapJson = handicap_indices ? JSON.stringify(handicap_indices) : null;
 
         const result = await runQuery(
-            'INSERT INTO tournaments (name, date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, date, course_name, parJson, handicapJson, course_rating || 72.0, slope || 113, game_scoring || 'Individual']
+            'INSERT INTO tournaments (name, date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring, code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, date, course_name, parJson, handicapJson, course_rating || 72.0, slope || 113, game_scoring || 'Individual', code]
         );
 
         const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [result.id]);
@@ -87,11 +97,19 @@ router.get('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring } = req.body;
+        const { date, course_name, par_values, handicap_indices, course_rating, slope, game_scoring, code } = req.body;
 
         const tournament = await getQuery('SELECT * FROM tournaments WHERE id = ?', [id]);
         if (!tournament) {
             return res.status(404).json({ error: 'Tournament not found' });
+        }
+
+        // If code is being updated, check if it already exists (excluding current tournament)
+        if (code && code !== tournament.code) {
+            const existingCode = await getQuery('SELECT id FROM tournaments WHERE code = ? AND id != ?', [code, id]);
+            if (existingCode) {
+                return res.status(400).json({ error: 'Tournament code already used. Choose another code.' });
+            }
         }
 
         const parJson = par_values ? JSON.stringify(par_values) : tournament.par_values;
@@ -101,7 +119,7 @@ router.put('/:id', async (req, res) => {
         const name = date || tournament.date;
 
         await runQuery(
-            'UPDATE tournaments SET name = ?, date = ?, course_name = ?, par_values = ?, handicap_indices = ?, course_rating = ?, slope = ?, game_scoring = ? WHERE id = ?',
+            'UPDATE tournaments SET name = ?, date = ?, course_name = ?, par_values = ?, handicap_indices = ?, course_rating = ?, slope = ?, game_scoring = ?, code = ? WHERE id = ?',
             [
                 name,
                 date || tournament.date,
@@ -111,6 +129,7 @@ router.put('/:id', async (req, res) => {
                 course_rating !== undefined ? course_rating : tournament.course_rating,
                 slope !== undefined ? slope : tournament.slope,
                 game_scoring !== undefined ? game_scoring : tournament.game_scoring,
+                code !== undefined ? code : tournament.code,
                 id
             ]
         );

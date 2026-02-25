@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createTournament, getAllTournaments, updateTournament, getAllCourses, createCourse } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import './TournamentSetup.css';
 
 const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament }) => {
+    const { logout } = useAuth();
     const [tournaments, setTournaments] = useState([]);
     const [courses, setCourses] = useState([]);
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -16,6 +18,7 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
         course_id: '',
         course_name: '',
         game_scoring: 'Individual',
+        code: '',
     });
     const [newCourseData, setNewCourseData] = useState({
         course_name: '',
@@ -107,6 +110,7 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                 course_id: '',
                 course_name: '',
                 game_scoring: 'Individual',
+                code: '',
             });
             setShowCreateForm(false);
             onTournamentSelected(tournament);
@@ -197,7 +201,12 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
 
             {!showCreateForm && !showParEditor && !showCourseCreate ? (
                 <div className="tournament-list">
-                    <h2>Select a Tournament</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h2 style={{ margin: 0 }}>Select a Tournament</h2>
+                        <button className="btn btn-secondary" onClick={logout}>
+                            Logout
+                        </button>
+                    </div>
                     <div className="tournament-grid">
                         {tournaments.map((tournament) => (
                             <div
@@ -211,6 +220,42 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                                 )}
                                 {tournament.game_scoring && (
                                     <p className="tournament-scoring">{tournament.game_scoring}</p>
+                                )}
+                                {tournament.code && (
+                                    <div
+                                        style={{
+                                            marginTop: '10px',
+                                            padding: '8px',
+                                            backgroundColor: '#f0f0f0',
+                                            borderRadius: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: '8px'
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <span style={{ fontSize: '14px', fontWeight: '600' }}>
+                                            Code: {tournament.code}
+                                        </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigator.clipboard.writeText(tournament.code);
+                                            }}
+                                            style={{
+                                                padding: '4px 8px',
+                                                fontSize: '12px',
+                                                backgroundColor: '#007bff',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         ))}
@@ -236,6 +281,26 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                                 onChange={handleInputChange}
                                 required
                             />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="code">Tournament Code *</label>
+                            <input
+                                type="text"
+                                id="code"
+                                name="code"
+                                value={formData.code}
+                                onChange={(e) => setFormData({
+                                    ...formData,
+                                    code: e.target.value.toUpperCase()
+                                })}
+                                placeholder="e.g. SPRING24"
+                                maxLength="20"
+                                required
+                            />
+                            <small style={{ fontSize: '12px', color: '#666' }}>
+                                Spectators will use this code to view the leaderboard
+                            </small>
                         </div>
 
                         <div className="form-group">

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { runQuery, getQuery, allQuery } = require('../config/databaseAdapter');
+const { generateUniqueGroupCode } = require('./auth');
 
 // Create a new group
 router.post('/', async (req, res) => {
@@ -11,9 +12,12 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Tournament ID and group name are required' });
         }
 
+        // Generate unique code for the group
+        const code = await generateUniqueGroupCode();
+
         const result = await runQuery(
-            'INSERT INTO groups (tournament_id, group_name) VALUES (?, ?)',
-            [tournament_id, group_name]
+            'INSERT INTO groups (tournament_id, group_name, code) VALUES (?, ?, ?)',
+            [tournament_id, group_name, code]
         );
 
         const group = await getQuery('SELECT * FROM groups WHERE id = ?', [result.id]);

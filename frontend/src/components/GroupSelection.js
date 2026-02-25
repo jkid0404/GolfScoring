@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, updatePlayer, deletePlayer, deleteTournament, getAllMasterPlayers, createMasterPlayer, deleteGroup } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import './GroupSelection.css';
 
 const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard, onEditHoles }) => {
+    const { logout } = useAuth();
     const [groups, setGroups] = useState([]);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showManagePlayers, setShowManagePlayers] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [groupPlayers, setGroupPlayers] = useState([]);
-    const [groupName, setGroupName] = useState('');
     const [newPlayerForm, setNewPlayerForm] = useState({ player_name: '', handicap: '' });
     const [editingPlayerId, setEditingPlayerId] = useState(null);
     const [editForm, setEditForm] = useState({ player_name: '', handicap: '' });
@@ -30,7 +31,21 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
     const loadGroups = async () => {
         try {
             const data = await getGroupsByTournament(tournament.id);
-            setGroups(data);
+
+            // Load players for each group
+            const groupsWithPlayers = await Promise.all(
+                data.map(async (group) => {
+                    try {
+                        const players = await getPlayersByGroup(group.id);
+                        return { ...group, players };
+                    } catch (err) {
+                        console.error(`Error loading players for group ${group.id}:`, err);
+                        return { ...group, players: [] };
+                    }
+                })
+            );
+
+            setGroups(groupsWithPlayers);
         } catch (err) {
             console.error('Error loading groups:', err);
             setError('Failed to load groups');
@@ -103,9 +118,10 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         setError(null);
 
         try {
+            // Use a placeholder name - the code will be the primary identifier
             const group = await createGroup({
                 tournament_id: tournament.id,
-                group_name: groupName,
+                group_name: `Group_${Date.now()}`,
             });
 
             // Add selected players to the group
@@ -131,7 +147,6 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                 }
             }
 
-            setGroupName('');
             setSelectedPlayers(['', '', '', '']);
             setShowCreateGroup(false);
             loadGroups();
@@ -289,9 +304,14 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                     Back
                 </button>
                 <h2>{new Date(tournament.date).toLocaleDateString()}</h2>
-                <button className="btn btn-primary" onClick={onShowLeaderboard}>
-                    Leaderboard
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btn-primary" onClick={onShowLeaderboard}>
+                        Leaderboard
+                    </button>
+                    <button className="btn btn-secondary" onClick={logout}>
+                        Logout
+                    </button>
+                </div>
             </div>
 
             {error && <div className="error-message">{error}</div>}
@@ -302,10 +322,61 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                     <div className="group-grid">
                         {groups.map((group) => (
                             <div key={group.id} className="group-card">
-                                <h4>{group.group_name}</h4>
-                                <p className="player-count">
-                                    {group.player_count} {group.player_count === 1 ? 'player' : 'players'}
-                                </p>
+                                {group.code && (
+                                    <div
+                                        style={{
+                                            marginBottom: '10px',
+                                            padding: '12px',
+                                            backgroundColor: '#f0f0f0',
+                                            borderRadius: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '2px' }}>
+                                            {group.code}
+                                        </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigator.clipboard.writeText(group.code);
+                                            }}
+                                            style={{
+                                                padding: '6px 12px',
+                                                fontSize: '12px',
+                                                backgroundColor: '#007bff',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
+                                )}
+                                {group.players && group.players.length > 0 ? (
+                                    <div style={{ marginBottom: '10px' }}>
+                                        {group.players.map((player, index) => (
+                                            <div
+                                                key={player.id}
+                                                style={{
+                                                    padding: '6px 0',
+                                                    borderBottom: index < group.players.length - 1 ? '1px solid #eee' : 'none',
+                                                    fontSize: '14px'
+                                                }}
+                                            >
+                                                {player.player_name} <span style={{ color: '#666', fontSize: '12px' }}>(HCP: {player.handicap})</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="player-count" style={{ marginBottom: '10px', color: '#999' }}>
+                                        No players added
+                                    </p>
+                                )}
                                 <div className="group-actions">
                                     <button
                                         className="btn btn-primary btn-sm"
@@ -401,16 +472,16 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                         </div>
                     ) : (
                         <form onSubmit={handleCreateGroup}>
-                            <div className="form-group">
-                                <label htmlFor="groupName">Group Name *</label>
-                                <input
-                                    type="text"
-                                    id="groupName"
-                                    value={groupName}
-                                    onChange={(e) => setGroupName(e.target.value)}
-                                    placeholder="e.g., Morning Group 1"
-                                    required
-                                />
+                            <div style={{
+                                padding: '12px',
+                                backgroundColor: '#e8f4f8',
+                                borderRadius: '4px',
+                                marginBottom: '20px',
+                                border: '1px solid #b3d9ea'
+                            }}>
+                                <p style={{ margin: 0, fontSize: '14px', color: '#0c5460' }}>
+                                    <strong>ℹ️ Group Code:</strong> A unique 6-character code will be automatically generated for this group
+                                </p>
                             </div>
 
                             <h4>Select Players</h4>

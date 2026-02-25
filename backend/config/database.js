@@ -37,6 +37,7 @@ const initializeDatabase = (database) => {
                     date TEXT NOT NULL,
                     course_name TEXT,
                     par_values TEXT DEFAULT '{"1":4,"2":4,"3":4,"4":4,"5":4,"6":4,"7":4,"8":4,"9":4,"10":4,"11":4,"12":4,"13":4,"14":4,"15":4,"16":4,"17":4,"18":4}',
+                    code TEXT UNIQUE,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `, (err) => {
@@ -49,6 +50,7 @@ const initializeDatabase = (database) => {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     tournament_id INTEGER NOT NULL,
                     group_name TEXT NOT NULL,
+                    code TEXT UNIQUE,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
                 )
@@ -117,6 +119,18 @@ const initializeDatabase = (database) => {
                 )
             `, (err) => {
                 if (err) console.error('Error creating courses table:', err);
+            });
+
+            // Create admins table
+            database.run(`
+                CREATE TABLE IF NOT EXISTS admins (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `, (err) => {
+                if (err) console.error('Error creating admins table:', err);
             });
 
             // Add course_rating column to courses if it doesn't exist
@@ -194,6 +208,24 @@ const initializeDatabase = (database) => {
             `, (err) => {
                 if (err && !err.message.includes('duplicate column name')) {
                     console.error('Error adding handicap column to players_master:', err);
+                }
+            });
+
+            // Add code column to tournaments if it doesn't exist
+            database.run(`
+                ALTER TABLE tournaments ADD COLUMN code TEXT
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding code column to tournaments:', err);
+                }
+            });
+
+            // Add code column to groups if it doesn't exist
+            database.run(`
+                ALTER TABLE groups ADD COLUMN code TEXT
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding code column to groups:', err);
                 }
                 // Resolve after all tables and migrations are complete
                 console.log('Database tables initialized successfully');

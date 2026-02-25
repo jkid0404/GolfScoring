@@ -150,4 +150,30 @@ export const deleteMasterPlayer = async (id) => {
     return response.data;
 };
 
+// Auth APIs
+export const checkAdminExists = async () => {
+    const response = await api.get('/auth/admin-exists');
+    return response.data;
+};
+
+export const createAdminAccount = async (username, password) => {
+    const response = await api.post('/auth/admin-signup', { username, password });
+    return response.data;
+};
+
+export const loginWithAdmin = async (username, password) => {
+    const response = await api.post('/auth/admin', { username, password });
+    return response.data;
+};
+
+export const loginWithTournamentCode = async (code) => {
+    const response = await api.post('/auth/tournament-code', { code });
+    return response.data;
+};
+
+export const loginWithGroupCode = async (code) => {
+    const response = await api.post('/auth/group-code', { code });
+    return response.data;
+};
+
 export default api;

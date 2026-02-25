@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { getLeaderboard, getTournament } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import socketService from '../services/socket';
 import './Leaderboard.css';
 
 const Leaderboard = ({ tournament, onBack }) => {
+    const { logout, userType } = useAuth();
     const [leaderboard, setLeaderboard] = useState([]);
     const [skinsDetails, setSkinsDetails] = useState([]);
     const [isBestBall, setIsBestBall] = useState(false);
@@ -184,9 +186,16 @@ const Leaderboard = ({ tournament, onBack }) => {
         return (
             <div className="leaderboard">
                 <div className="header">
-                    <button className="btn btn-back" onClick={onBack}>
-                        Back
-                    </button>
+                    {userType !== 'tournament' && onBack && (
+                        <button className="btn btn-back" onClick={onBack}>
+                            Back
+                        </button>
+                    )}
+                    {(userType === 'tournament' || !onBack) && (
+                        <button className="btn btn-back" onClick={logout}>
+                            Logout
+                        </button>
+                    )}
                     <h2>Loading...</h2>
                 </div>
             </div>
@@ -199,9 +208,16 @@ const Leaderboard = ({ tournament, onBack }) => {
     return (
         <div className="leaderboard">
             <div className="header">
-                <button className="btn btn-back" onClick={onBack}>
-                    Back
-                </button>
+                {userType !== 'tournament' && onBack && (
+                    <button className="btn btn-back" onClick={onBack}>
+                        Back
+                    </button>
+                )}
+                {(userType === 'tournament' || !onBack) && (
+                    <button className="btn btn-back" onClick={logout}>
+                        Logout
+                    </button>
+                )}
                 <div className="header-info">
                     <h2>Leaderboard</h2>
                     <p className="tournament-name">{tournament.name}</p>

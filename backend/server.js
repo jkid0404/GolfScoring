@@ -11,6 +11,7 @@ const playersRouter = require('./routes/players');
 const scoresRouter = require('./routes/scores');
 const coursesRouter = require('./routes/courses');
 const playersMasterRouter = require('./routes/playersMaster');
+const { router: authRouter } = require('./routes/auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,7 @@ app.use(express.json());
 app.set('io', io);
 
 // Routes
+app.use('/api/auth', authRouter);
 app.use('/api/tournaments', tournamentsRouter);
 app.use('/api/groups', groupsRouter);
 app.use('/api/players', playersRouter);
