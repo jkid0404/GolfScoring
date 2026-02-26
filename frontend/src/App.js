@@ -12,7 +12,7 @@ import './App.css';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function AppContent() {
-    const { isAuthenticated, userType, tournamentId, groupId, tournamentData, groupData } = useAuth();
+    const { isAuthenticated, userType, tournamentData, groupData } = useAuth();
     const [currentView, setCurrentView] = useState('login');
     const [selectedTournament, setSelectedTournament] = useState(null);
     const [selectedGroup, setSelectedGroup] = useState(null);
