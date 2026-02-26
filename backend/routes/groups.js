@@ -38,7 +38,7 @@ router.get('/tournament/:tournamentId', async (req, res) => {
             FROM groups g
             LEFT JOIN players p ON g.id = p.group_id
             WHERE g.tournament_id = ?
-            GROUP BY g.id, g.tournament_id, g.group_name, g.created_at
+            GROUP BY g.id, g.tournament_id, g.group_name, g.code, g.created_at
             ORDER BY g.created_at
         `, [tournamentId]);
 
