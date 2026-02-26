@@ -12,7 +12,6 @@ const Leaderboard = ({ tournament, onBack }) => {
     const [tournamentData, setTournamentData] = useState(tournament);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isConnected, setIsConnected] = useState(false);
     const [showGross, setShowGross] = useState(true);
     const [showNet, setShowNet] = useState(true);
     const [showSkins, setShowSkins] = useState(true);
@@ -23,7 +22,6 @@ const Leaderboard = ({ tournament, onBack }) => {
 
         // Connect to socket and join tournament room
         socketService.connect();
-        setIsConnected(socketService.isConnected());
         socketService.joinTournament(tournament.id);
 
         // Listen for score updates
@@ -222,13 +220,8 @@ const Leaderboard = ({ tournament, onBack }) => {
                     <h2>Leaderboard</h2>
                     <p className="tournament-name">{tournament.name}</p>
                     {tournamentData?.course_name && (
-                        <p className="course-name">{tournamentData.course_name} (Par {getTotalPar()})</p>
+                        <p className="course-name">{tournamentData.course_name}</p>
                     )}
-                </div>
-                <div className="connection-status">
-                    <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
-                        {isConnected ? '● Live' : '○ Offline'}
-                    </span>
                 </div>
             </div>
 

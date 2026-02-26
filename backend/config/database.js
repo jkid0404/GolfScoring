@@ -51,6 +51,7 @@ const initializeDatabase = (database) => {
                     tournament_id INTEGER NOT NULL,
                     group_name TEXT NOT NULL,
                     code TEXT UNIQUE,
+                    starting_hole INTEGER DEFAULT 1,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
                 )
