@@ -170,31 +170,6 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         }
     };
 
-    const handleAddPlayer = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-
-        try {
-            await addPlayer({
-                group_id: selectedGroup.id,
-                player_name: newPlayerForm.player_name,
-                handicap: parseInt(newPlayerForm.handicap),
-            });
-            setNewPlayerForm({ player_name: '', handicap: '' });
-
-            // Reload players
-            const players = await getPlayersByGroup(selectedGroup.id);
-            setGroupPlayers(players);
-            loadGroups();
-        } catch (err) {
-            console.error('Error adding player:', err);
-            setError('Failed to add player');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleEditPlayer = (player) => {
         setEditingPlayerId(player.id);
         setEditForm({
