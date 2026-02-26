@@ -28,7 +28,11 @@ async function generateUniqueGroupCode() {
 // Check if any admin accounts exist
 router.get('/admin-exists', async (req, res) => {
     try {
-        const admin = await getQuery('SELECT id FROM admins LIMIT 1');
+        const dbType = process.env.DB_TYPE || 'sqlite';
+        const query = dbType === 'azure_sql'
+            ? 'SELECT TOP 1 id FROM admins'
+            : 'SELECT id FROM admins LIMIT 1';
+        const admin = await getQuery(query);
         res.json({ exists: !!admin });
     } catch (error) {
         console.error('Error checking admin existence:', error);
@@ -46,7 +50,11 @@ router.post('/admin-signup', async (req, res) => {
         }
 
         // Check if any admin exists
-        const existingAdmin = await getQuery('SELECT id FROM admins LIMIT 1');
+        const dbType = process.env.DB_TYPE || 'sqlite';
+        const query = dbType === 'azure_sql'
+            ? 'SELECT TOP 1 id FROM admins'
+            : 'SELECT id FROM admins LIMIT 1';
+        const existingAdmin = await getQuery(query);
         if (existingAdmin) {
             return res.status(403).json({ error: 'Admin account already exists. Cannot create another admin.' });
         }
