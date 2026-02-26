@@ -98,6 +98,7 @@ const initializeDatabase = (database) => {
                 CREATE TABLE IF NOT EXISTS players_master (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     player_name TEXT NOT NULL,
+                    email TEXT,
                     ghin TEXT,
                     handicap INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -208,6 +209,15 @@ const initializeDatabase = (database) => {
             `, (err) => {
                 if (err && !err.message.includes('duplicate column name')) {
                     console.error('Error adding handicap column to players_master:', err);
+                }
+            });
+
+            // Add email column to players_master if it doesn't exist
+            database.run(`
+                ALTER TABLE players_master ADD COLUMN email TEXT
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding email column to players_master:', err);
                 }
             });
 

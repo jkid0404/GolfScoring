@@ -7,6 +7,7 @@ import ScoreEntry from './components/ScoreEntry';
 import Leaderboard from './components/Leaderboard';
 import Login from './components/Login';
 import AdminSignup from './components/AdminSignup';
+import AddPlayer from './components/AddPlayer';
 import './App.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -81,6 +82,14 @@ function AppContent() {
         setCurrentView('tournament');
     };
 
+    const handleShowAddPlayer = () => {
+        setCurrentView('addPlayer');
+    };
+
+    const handleBackFromAddPlayer = () => {
+        setCurrentView('tournament');
+    };
+
     const handleBackToGroup = () => {
         setSelectedGroup(null);
         setCurrentView('group');
@@ -148,7 +157,14 @@ function AppContent() {
             )}
 
             {isAuthenticated && currentView === 'tournament' && (
-                <TournamentSetup onTournamentSelected={handleTournamentSelected} />
+                <TournamentSetup
+                    onTournamentSelected={handleTournamentSelected}
+                    onShowAddPlayer={handleShowAddPlayer}
+                />
+            )}
+
+            {isAuthenticated && currentView === 'addPlayer' && (
+                <AddPlayer onBack={handleBackFromAddPlayer} />
             )}
 
             {isAuthenticated && currentView === 'group' && selectedTournament && (

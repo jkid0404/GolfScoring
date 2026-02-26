@@ -3,7 +3,7 @@ import { createTournament, getAllTournaments, updateTournament, getAllCourses, c
 import { useAuth } from '../contexts/AuthContext';
 import './TournamentSetup.css';
 
-const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament }) => {
+const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament, onShowAddPlayer }) => {
     const { logout } = useAuth();
     const [tournaments, setTournaments] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -260,12 +260,22 @@ const TournamentSetup = ({ onTournamentSelected, onEditHoles, editingTournament 
                             </div>
                         ))}
                     </div>
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => setShowCreateForm(true)}
-                    >
-                        Create New Tournament
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setShowCreateForm(true)}
+                        >
+                            Create New Tournament
+                        </button>
+                        {onShowAddPlayer && (
+                            <button
+                                className="btn btn-secondary"
+                                onClick={onShowAddPlayer}
+                            >
+                                Add Player
+                            </button>
+                        )}
+                    </div>
                 </div>
             ) : showCreateForm ? (
                 <div className="create-tournament-form">

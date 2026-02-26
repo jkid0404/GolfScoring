@@ -597,45 +597,6 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                         ))}
                     </div>
 
-                    <div className="add-player-section">
-                        <h4>Add New Player</h4>
-                        <form onSubmit={handleAddPlayer}>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label htmlFor="playerName">Player Name *</label>
-                                    <input
-                                        type="text"
-                                        id="playerName"
-                                        value={newPlayerForm.player_name}
-                                        onChange={(e) =>
-                                            setNewPlayerForm({ ...newPlayerForm, player_name: e.target.value })
-                                        }
-                                        required
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label htmlFor="handicap">Handicap *</label>
-                                    <input
-                                        type="number"
-                                        id="handicap"
-                                        value={newPlayerForm.handicap}
-                                        onChange={(e) =>
-                                            setNewPlayerForm({ ...newPlayerForm, handicap: e.target.value })
-                                        }
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            <button
-                                type="submit"
-                                className="btn btn-primary"
-                                disabled={loading}
-                            >
-                                {loading ? 'Adding...' : 'Add Player'}
-                            </button>
-                        </form>
-                    </div>
-
                     <div className="manage-players-actions">
                         <button
                             className="btn btn-secondary"

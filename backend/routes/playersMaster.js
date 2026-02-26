@@ -30,15 +30,15 @@ router.get('/:id', async (req, res) => {
 // Create a new master player
 router.post('/', async (req, res) => {
     try {
-        const { player_name, ghin, handicap } = req.body;
+        const { player_name, email, ghin, handicap } = req.body;
 
         if (!player_name) {
             return res.status(400).json({ error: 'Player name is required' });
         }
 
         const result = await runQuery(
-            'INSERT INTO players_master (player_name, ghin, handicap) VALUES (?, ?, ?)',
-            [player_name, ghin || null, handicap || 0]
+            'INSERT INTO players_master (player_name, email, ghin, handicap) VALUES (?, ?, ?, ?)',
+            [player_name, email || null, ghin || null, handicap || 0]
         );
 
         const newPlayer = await getQuery('SELECT * FROM players_master WHERE id = ?', [result.id]);
@@ -52,15 +52,15 @@ router.post('/', async (req, res) => {
 // Update a master player
 router.put('/:id', async (req, res) => {
     try {
-        const { player_name, ghin, handicap } = req.body;
+        const { player_name, email, ghin, handicap } = req.body;
 
         if (!player_name) {
             return res.status(400).json({ error: 'Player name is required' });
         }
 
         await runQuery(
-            'UPDATE players_master SET player_name = ?, ghin = ?, handicap = ? WHERE id = ?',
-            [player_name, ghin || null, handicap || 0, req.params.id]
+            'UPDATE players_master SET player_name = ?, email = ?, ghin = ?, handicap = ? WHERE id = ?',
+            [player_name, email || null, ghin || null, handicap || 0, req.params.id]
         );
 
         const updatedPlayer = await getQuery('SELECT * FROM players_master WHERE id = ?', [req.params.id]);
