@@ -529,7 +529,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                 </div>
             ) : (
                 <div className="manage-players">
-                    <h3>Manage Players - {selectedGroup?.group_name}</h3>
+                    <h3>Manage Players</h3>
 
                     <div className="players-list">
                         {groupPlayers.map((player) => (
