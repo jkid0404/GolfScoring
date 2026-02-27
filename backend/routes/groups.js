@@ -76,6 +76,39 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Update a group
+router.put('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { starting_hole } = req.body;
+
+        // Check if group exists
+        const group = await getQuery('SELECT * FROM groups WHERE id = ?', [id]);
+        if (!group) {
+            return res.status(404).json({ error: 'Group not found' });
+        }
+
+        // Validate starting_hole
+        const startingHole = parseInt(starting_hole);
+        if (isNaN(startingHole) || startingHole < 1 || startingHole > 18) {
+            return res.status(400).json({ error: 'Starting hole must be between 1 and 18' });
+        }
+
+        // Update the group
+        await runQuery(
+            'UPDATE groups SET starting_hole = ? WHERE id = ?',
+            [startingHole, id]
+        );
+
+        // Fetch and return updated group
+        const updatedGroup = await getQuery('SELECT * FROM groups WHERE id = ?', [id]);
+        res.json(updatedGroup);
+    } catch (error) {
+        console.error('Error updating group:', error);
+        res.status(500).json({ error: 'Failed to update group' });
+    }
+});
+
 // Delete a group (cascade deletes players and scores)
 router.delete('/:id', async (req, res) => {
     try {

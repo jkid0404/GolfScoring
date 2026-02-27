@@ -48,7 +48,7 @@ function AppContent() {
                 setCurrentView('score');
             } else if (userType === 'tournament') {
                 setSelectedTournament(tournamentData);
-                setCurrentView('leaderboard');
+                setCurrentView('group');
             }
         } else {
             setCurrentView('login');
@@ -174,6 +174,7 @@ function AppContent() {
                     onBack={handleBackToTournament}
                     onShowLeaderboard={handleShowLeaderboard}
                     onEditHoles={handleEditHoles}
+                    userType={userType}
                 />
             )}
 

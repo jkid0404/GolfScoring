@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, updatePlayer, deletePlayer, deleteTournament, getAllMasterPlayers, createMasterPlayer, deleteGroup } from '../services/api';
+import { createGroup, getGroupsByTournament, addPlayer, getPlayersByGroup, updatePlayer, deletePlayer, deleteTournament, getAllMasterPlayers, createMasterPlayer, deleteGroup, updateGroup } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import './GroupSelection.css';
 
-const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard, onEditHoles }) => {
+const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard, onEditHoles, userType }) => {
     const { logout } = useAuth();
     const [groups, setGroups] = useState([]);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showManagePlayers, setShowManagePlayers] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [groupPlayers, setGroupPlayers] = useState([]);
-    const [setNewPlayerForm] = useState({ player_name: '', handicap: '' });
+    const [showAddPlayerToGroup, setShowAddPlayerToGroup] = useState(false);
+    const [selectedPlayerToAdd, setSelectedPlayerToAdd] = useState('');
+    const [editingStartingHole, setEditingStartingHole] = useState(false);
+    const [newStartingHole, setNewStartingHole] = useState(1);
+    const [newPlayerForm, setNewPlayerForm] = useState({ player_name: '', handicap: '' });
     const [editingPlayerId, setEditingPlayerId] = useState(null);
     const [editForm, setEditForm] = useState({ player_name: '', handicap: '' });
     const [loading, setLoading] = useState(false);
@@ -18,7 +22,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
 
     // Master players and player selection for group creation
     const [masterPlayers, setMasterPlayers] = useState([]);
-    const [selectedPlayers, setSelectedPlayers] = useState(['', '', '', '']); // 4 player slots
+    const [selectedPlayers, setSelectedPlayers] = useState(['']); // Start with 1 player slot
     const [startingHole, setStartingHole] = useState(1);
     const [showAddNewPlayer, setShowAddNewPlayer] = useState(false);
     const [newMasterPlayerForm, setNewMasterPlayerForm] = useState({ player_name: '', ghin: '', handicap: '' });
@@ -70,6 +74,19 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         } else {
             const newSelection = [...selectedPlayers];
             newSelection[index] = value;
+            setSelectedPlayers(newSelection);
+        }
+    };
+
+    const handleAddPlayerSlot = () => {
+        if (selectedPlayers.length < 4) {
+            setSelectedPlayers([...selectedPlayers, '']);
+        }
+    };
+
+    const handleRemovePlayerSlot = (index) => {
+        if (selectedPlayers.length > 1) {
+            const newSelection = selectedPlayers.filter((_, i) => i !== index);
             setSelectedPlayers(newSelection);
         }
     };
@@ -139,17 +156,10 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                             handicap: masterPlayer.handicap || 0,
                         });
                     }
-                } else {
-                    // If no player selected, add a default placeholder
-                    await addPlayer({
-                        group_id: group.id,
-                        player_name: `Player ${i + 1}`,
-                        handicap: 0,
-                    });
                 }
             }
 
-            setSelectedPlayers(['', '', '', '']);
+            setSelectedPlayers(['']);
             setStartingHole(1);
             setShowCreateGroup(false);
             loadGroups();
@@ -166,10 +176,32 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
             const players = await getPlayersByGroup(group.id);
             setGroupPlayers(players);
             setSelectedGroup(group);
+            setNewStartingHole(group.starting_hole || 1);
             setShowManagePlayers(true);
         } catch (err) {
             console.error('Error loading players:', err);
             setError('Failed to load players');
+        }
+    };
+
+    const handleUpdateStartingHole = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            await updateGroup(selectedGroup.id, {
+                starting_hole: newStartingHole,
+            });
+
+            // Update the selected group and reload groups
+            setSelectedGroup({ ...selectedGroup, starting_hole: newStartingHole });
+            setEditingStartingHole(false);
+            loadGroups();
+        } catch (err) {
+            console.error('Error updating starting hole:', err);
+            setError('Failed to update starting hole');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -266,6 +298,35 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         }
     };
 
+    const handleAddPlayerToGroup = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+
+        try {
+            const masterPlayer = masterPlayers.find(p => p.id === parseInt(selectedPlayerToAdd));
+            if (masterPlayer) {
+                await addPlayer({
+                    group_id: selectedGroup.id,
+                    player_name: masterPlayer.player_name,
+                    handicap: masterPlayer.handicap || 0,
+                });
+
+                // Reload players
+                const players = await getPlayersByGroup(selectedGroup.id);
+                setGroupPlayers(players);
+                setSelectedPlayerToAdd('');
+                setShowAddPlayerToGroup(false);
+                loadGroups();
+            }
+        } catch (err) {
+            console.error('Error adding player:', err);
+            setError('Failed to add player');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleCloseManagePlayers = () => {
         setShowManagePlayers(false);
         setSelectedGroup(null);
@@ -273,6 +334,10 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
         setNewPlayerForm({ player_name: '', handicap: '' });
         setEditingPlayerId(null);
         setEditForm({ player_name: '', handicap: '' });
+        setShowAddPlayerToGroup(false);
+        setSelectedPlayerToAdd('');
+        setEditingStartingHole(false);
+        setNewStartingHole(1);
     };
 
     return (
@@ -299,74 +364,78 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                     <h3>Select Your Group</h3>
                     <div className="group-grid">
                         {groups.map((group) => (
-                            <div key={group.id} className="group-card">
-                                {group.code && (
-                                    <div
-                                        style={{
-                                            marginBottom: '10px',
-                                            padding: '12px',
-                                            backgroundColor: '#f0f0f0',
-                                            borderRadius: '4px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: '8px'
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '2px' }}>
-                                            {group.code}
-                                        </span>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigator.clipboard.writeText(group.code);
-                                            }}
+                            <div key={group.id} className="group-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ flex: 1 }}>
+                                    {group.code && (
+                                        <div
                                             style={{
-                                                padding: '6px 12px',
-                                                fontSize: '12px',
-                                                backgroundColor: '#007bff',
-                                                color: 'white',
-                                                border: 'none',
+                                                marginBottom: '10px',
+                                                padding: '12px',
+                                                backgroundColor: '#f0f0f0',
                                                 borderRadius: '4px',
-                                                cursor: 'pointer'
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '8px'
                                             }}
                                         >
-                                            Copy
-                                        </button>
-                                    </div>
-                                )}
-                                {group.players && group.players.length > 0 ? (
-                                    <div style={{ marginBottom: '10px' }}>
-                                        {group.players.map((player, index) => (
-                                            <div
-                                                key={player.id}
+                                            <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '2px' }}>
+                                                {group.code}
+                                            </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigator.clipboard.writeText(group.code);
+                                                }}
                                                 style={{
-                                                    padding: '6px 0',
-                                                    borderBottom: index < group.players.length - 1 ? '1px solid #eee' : 'none',
-                                                    fontSize: '14px'
+                                                    padding: '6px 12px',
+                                                    fontSize: '12px',
+                                                    backgroundColor: '#007bff',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
                                                 }}
                                             >
-                                                {player.player_name} <span style={{ color: '#666', fontSize: '12px' }}>(HCP: {player.handicap})</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="player-count" style={{ marginBottom: '10px', color: '#999' }}>
-                                        No players added
-                                    </p>
-                                )}
+                                                Copy
+                                            </button>
+                                        </div>
+                                    )}
+                                    {group.players && group.players.length > 0 ? (
+                                        <div style={{ marginBottom: '10px' }}>
+                                            {group.players.map((player, index) => (
+                                                <div
+                                                    key={player.id}
+                                                    style={{
+                                                        padding: '6px 0',
+                                                        borderBottom: index < group.players.length - 1 ? '1px solid #eee' : 'none',
+                                                        fontSize: '14px'
+                                                    }}
+                                                >
+                                                    {player.player_name} <span style={{ color: '#666', fontSize: '12px' }}>(HCP: {player.handicap})</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="player-count" style={{ marginBottom: '10px', color: '#999' }}>
+                                            No players added
+                                        </p>
+                                    )}
+                                </div>
                                 <div className="group-actions">
-                                    <button
-                                        className="btn btn-primary btn-sm"
-                                        onClick={() => handleSelectGroup(group)}
-                                    >
-                                        Enter Scores
-                                    </button>
+                                    {userType === 'admin' && (
+                                        <button
+                                            className="btn btn-primary btn-sm"
+                                            onClick={() => handleSelectGroup(group)}
+                                        >
+                                            Enter Scores
+                                        </button>
+                                    )}
                                     <button
                                         className="btn btn-secondary btn-sm"
                                         onClick={() => handleManagePlayers(group)}
                                     >
-                                        Manage Players
+                                        Manage Group
                                     </button>
                                 </div>
                             </div>
@@ -379,12 +448,14 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                         >
                             Create New Group
                         </button>
-                        <button
-                            className="btn btn-delete"
-                            onClick={handleDeleteTournament}
-                        >
-                            Delete Tournament
-                        </button>
+                        {userType === 'admin' && (
+                            <button
+                                className="btn btn-delete"
+                                onClick={handleDeleteTournament}
+                            >
+                                Delete Tournament
+                            </button>
+                        )}
                     </div>
                 </div>
             ) : showCreateGroup ? (
@@ -462,49 +533,74 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                 </p>
                             </div>
 
-                            <div className="form-group">
-                                <label htmlFor="startingHole">Starting Hole *</label>
-                                <select
-                                    id="startingHole"
-                                    value={startingHole}
-                                    onChange={(e) => setStartingHole(parseInt(e.target.value))}
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px',
-                                        fontSize: '16px',
-                                        borderRadius: '4px',
-                                        border: '1px solid #ddd'
-                                    }}
-                                >
-                                    {[...Array(18)].map((_, i) => (
-                                        <option key={i + 1} value={i + 1}>
-                                            Hole {i + 1}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            {userType === 'admin' && (
+                                <div className="form-group">
+                                    <label htmlFor="startingHole">Starting Hole *</label>
+                                    <select
+                                        id="startingHole"
+                                        value={startingHole}
+                                        onChange={(e) => setStartingHole(parseInt(e.target.value))}
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px',
+                                            fontSize: '16px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #ddd'
+                                        }}
+                                    >
+                                        {[...Array(18)].map((_, i) => (
+                                            <option key={i + 1} value={i + 1}>
+                                                Hole {i + 1}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             <h4>Select Players</h4>
                             {selectedPlayers.map((selectedPlayerId, index) => (
-                                <div key={index} className="form-group">
-                                    <label htmlFor={`player${index + 1}`}>Player {index + 1}</label>
-                                    <select
-                                        id={`player${index + 1}`}
-                                        value={selectedPlayerId}
-                                        onChange={(e) => handlePlayerSelection(index, e.target.value)}
-                                        className="player-select"
-                                    >
-                                        <option value="">-- Select Player --</option>
-                                        {masterPlayers.map((player) => (
-                                            <option key={player.id} value={player.id}>
-                                                {player.player_name} (HCP: {player.handicap || 0}{player.ghin ? `, GHIN: ${player.ghin}` : ''})
-                                            </option>
-                                        ))}
-                                        <option value="add_new">+ Add New Player...</option>
-                                    </select>
+                                <div key={index} style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '15px' }}>
+                                    <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                                        <label htmlFor={`player${index + 1}`}>Player {index + 1}</label>
+                                        <select
+                                            id={`player${index + 1}`}
+                                            value={selectedPlayerId}
+                                            onChange={(e) => handlePlayerSelection(index, e.target.value)}
+                                            className="player-select"
+                                        >
+                                            <option value="">-- Select Player --</option>
+                                            {masterPlayers.map((player) => (
+                                                <option key={player.id} value={player.id}>
+                                                    {player.player_name} (HCP: {player.handicap || 0}{player.ghin ? `, GHIN: ${player.ghin}` : ''})
+                                                </option>
+                                            ))}
+                                            <option value="add_new">+ Add New Player...</option>
+                                        </select>
+                                    </div>
+                                    {selectedPlayers.length > 1 && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-delete btn-sm"
+                                            onClick={() => handleRemovePlayerSlot(index)}
+                                            style={{ marginBottom: '0' }}
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
                                 </div>
                             ))}
+
+                            {selectedPlayers.length < 4 && (
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={handleAddPlayerSlot}
+                                    style={{ marginBottom: '20px' }}
+                                >
+                                    + Add Player
+                                </button>
+                            )}
 
                             <div className="form-actions">
                                 <button
@@ -512,7 +608,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                     className="btn btn-secondary"
                                     onClick={() => {
                                         setShowCreateGroup(false);
-                                        setSelectedPlayers(['', '', '', '']);
+                                        setSelectedPlayers(['']);
                                         setStartingHole(1);
                                     }}
                                 >
@@ -531,7 +627,75 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                 </div>
             ) : (
                 <div className="manage-players">
-                    <h3>Manage Players</h3>
+                    <h3>Manage Group</h3>
+
+                    {userType === 'admin' && (
+                        <div style={{
+                            padding: '12px',
+                            backgroundColor: '#f8f9fa',
+                            borderRadius: '4px',
+                            marginBottom: '20px',
+                            border: '1px solid #dee2e6'
+                        }}>
+                            {!editingStartingHole ? (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <strong>Starting Hole:</strong> <span style={{ marginLeft: '10px' }}>Hole {selectedGroup?.starting_hole || 1}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                        <button
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={() => setEditingStartingHole(true)}
+                                            style={{ minWidth: 'auto' }}
+                                        >
+                                            Edit
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label htmlFor="editStartingHole" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Starting Hole</label>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                        <select
+                                            id="editStartingHole"
+                                            value={newStartingHole}
+                                            onChange={(e) => setNewStartingHole(parseInt(e.target.value))}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px',
+                                                fontSize: '16px',
+                                                borderRadius: '4px',
+                                                border: '1px solid #ddd'
+                                            }}
+                                        >
+                                            {[...Array(18)].map((_, i) => (
+                                                <option key={i + 1} value={i + 1}>
+                                                    Hole {i + 1}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            className="btn btn-primary btn-sm"
+                                            onClick={handleUpdateStartingHole}
+                                            disabled={loading}
+                                        >
+                                            Save
+                                        </button>
+                                        <button
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={() => {
+                                                setEditingStartingHole(false);
+                                                setNewStartingHole(selectedGroup?.starting_hole || 1);
+                                            }}
+                                            disabled={loading}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="players-list">
                         {groupPlayers.map((player) => (
@@ -578,13 +742,15 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                             <span className="player-handicap">Handicap: {player.handicap}</span>
                                         </div>
                                         <div className="player-actions">
-                                            <button
-                                                className="btn btn-secondary btn-sm"
-                                                onClick={() => handleEditPlayer(player)}
-                                                disabled={loading}
-                                            >
-                                                Edit
-                                            </button>
+                                            {userType === 'admin' && (
+                                                <button
+                                                    className="btn btn-secondary btn-sm"
+                                                    onClick={() => handleEditPlayer(player)}
+                                                    disabled={loading}
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
                                             <button
                                                 className="btn btn-delete btn-sm"
                                                 onClick={() => handleDeletePlayer(player.id)}
@@ -598,6 +764,64 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                             </div>
                         ))}
                     </div>
+
+                    {groupPlayers.length < 4 && (
+                        <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+                            {!showAddPlayerToGroup ? (
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() => setShowAddPlayerToGroup(true)}
+                                >
+                                    + Add Player
+                                </button>
+                            ) : (
+                                <form onSubmit={handleAddPlayerToGroup}>
+                                    <div className="form-group">
+                                        <label htmlFor="addPlayerSelect">Select Player to Add</label>
+                                        <select
+                                            id="addPlayerSelect"
+                                            value={selectedPlayerToAdd}
+                                            onChange={(e) => setSelectedPlayerToAdd(e.target.value)}
+                                            required
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                fontSize: '16px',
+                                                borderRadius: '4px',
+                                                border: '1px solid #ddd'
+                                            }}
+                                        >
+                                            <option value="">-- Select Player --</option>
+                                            {masterPlayers.map((player) => (
+                                                <option key={player.id} value={player.id}>
+                                                    {player.player_name} (HCP: {player.handicap || 0}{player.ghin ? `, GHIN: ${player.ghin}` : ''})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() => {
+                                                setShowAddPlayerToGroup(false);
+                                                setSelectedPlayerToAdd('');
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="btn btn-primary"
+                                            disabled={loading}
+                                        >
+                                            {loading ? 'Adding...' : 'Add Player'}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
+                    )}
 
                     <div className="manage-players-actions">
                         <button
