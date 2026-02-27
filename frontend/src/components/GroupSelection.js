@@ -19,6 +19,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
     // Master players and player selection for group creation
     const [masterPlayers, setMasterPlayers] = useState([]);
     const [selectedPlayers, setSelectedPlayers] = useState(['', '', '', '']); // 4 player slots
+    const [startingHole, setStartingHole] = useState(1);
     const [showAddNewPlayer, setShowAddNewPlayer] = useState(false);
     const [newMasterPlayerForm, setNewMasterPlayerForm] = useState({ player_name: '', ghin: '', handicap: '' });
 
@@ -122,6 +123,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
             const group = await createGroup({
                 tournament_id: tournament.id,
                 group_name: `Group_${Date.now()}`,
+                starting_hole: startingHole,
             });
 
             // Add selected players to the group
@@ -148,6 +150,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
             }
 
             setSelectedPlayers(['', '', '', '']);
+            setStartingHole(1);
             setShowCreateGroup(false);
             loadGroups();
         } catch (err) {
@@ -459,6 +462,29 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                 </p>
                             </div>
 
+                            <div className="form-group">
+                                <label htmlFor="startingHole">Starting Hole *</label>
+                                <select
+                                    id="startingHole"
+                                    value={startingHole}
+                                    onChange={(e) => setStartingHole(parseInt(e.target.value))}
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px',
+                                        fontSize: '16px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd'
+                                    }}
+                                >
+                                    {[...Array(18)].map((_, i) => (
+                                        <option key={i + 1} value={i + 1}>
+                                            Hole {i + 1}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <h4>Select Players</h4>
                             {selectedPlayers.map((selectedPlayerId, index) => (
                                 <div key={index} className="form-group">
@@ -487,6 +513,7 @@ const GroupSelection = ({ tournament, onGroupSelected, onBack, onShowLeaderboard
                                     onClick={() => {
                                         setShowCreateGroup(false);
                                         setSelectedPlayers(['', '', '', '']);
+                                        setStartingHole(1);
                                     }}
                                 >
                                     Cancel

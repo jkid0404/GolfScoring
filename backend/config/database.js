@@ -238,6 +238,15 @@ const initializeDatabase = (database) => {
                 if (err && !err.message.includes('duplicate column name')) {
                     console.error('Error adding code column to groups:', err);
                 }
+            });
+
+            // Add starting_hole column to groups if it doesn't exist
+            database.run(`
+                ALTER TABLE groups ADD COLUMN starting_hole INTEGER DEFAULT 1
+            `, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding starting_hole column to groups:', err);
+                }
                 // Resolve after all tables and migrations are complete
                 console.log('Database tables initialized successfully');
                 resolve();

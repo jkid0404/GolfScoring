@@ -5,7 +5,8 @@ import './ScoreEntry.css';
 
 const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
     const { logout, userType } = useAuth();
-    const [currentHole, setCurrentHole] = useState(1);
+    const startingHole = group?.starting_hole || 1;
+    const [currentHole, setCurrentHole] = useState(startingHole);
     const [holeScores, setHoleScores] = useState({});
     const [allScores, setAllScores] = useState({});
     const [loading, setLoading] = useState(false);
@@ -13,6 +14,11 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
     const [saveMessage, setSaveMessage] = useState('');
     const [showSummary, setShowSummary] = useState(false);
     const [teamScores, setTeamScores] = useState({}); // For Shamble/Scramble
+
+    // Calculate the final hole for this group (the hole before starting hole)
+    const getFinalHole = () => {
+        return startingHole === 1 ? 18 : startingHole - 1;
+    };
 
     // Check if this is a team-based format (Shamble or Scramble)
     const isTeamFormat = tournament?.game_scoring?.includes('Shamble') ||
@@ -214,13 +220,30 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
 
     const handleNextHole = async () => {
         await handleSaveHole();
-        if (currentHole < 18) {
+
+        // Don't advance if we're on the final hole
+        if (currentHole === getFinalHole()) {
+            return;
+        }
+
+        if (currentHole === 18) {
+            // Wrap to hole 1
+            setCurrentHole(1);
+        } else {
             setCurrentHole(currentHole + 1);
         }
     };
 
     const handlePreviousHole = () => {
-        if (currentHole > 1) {
+        if (currentHole === startingHole) {
+            // Can't go before starting hole
+            return;
+        }
+
+        if (currentHole === 1) {
+            // Wrap to hole 18
+            setCurrentHole(18);
+        } else {
             setCurrentHole(currentHole - 1);
         }
     };
@@ -390,7 +413,7 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
                 <button
                     className="btn btn-nav"
                     onClick={handlePreviousHole}
-                    disabled={currentHole === 1}
+                    disabled={currentHole === startingHole}
                 >
                     ← Previous
                 </button>
@@ -400,14 +423,19 @@ const ScoreEntry = ({ tournament, group, onBack, onShowLeaderboard }) => {
                     {tournament?.handicap_indices && (
                         <p className="hole-handicap">HCP: {tournament.handicap_indices[currentHole]}</p>
                     )}
+                    {startingHole !== 1 && (
+                        <p style={{ fontSize: '12px', color: '#666', margin: '5px 0 0 0' }}>
+                            Started on Hole {startingHole}
+                        </p>
+                    )}
                 </div>
 
                 <button
                     className="btn btn-nav"
                     onClick={handleNextHole}
-                    disabled={currentHole === 18 && loading}
+                    disabled={currentHole === getFinalHole() && loading}
                 >
-                    {currentHole === 18 ? 'Save' : 'Next →'}
+                    {currentHole === getFinalHole() ? 'Save' : 'Next →'}
                 </button>
             </div>
 

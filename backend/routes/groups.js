@@ -6,18 +6,24 @@ const { generateUniqueGroupCode } = require('./auth');
 // Create a new group
 router.post('/', async (req, res) => {
     try {
-        const { tournament_id, group_name } = req.body;
+        const { tournament_id, group_name, starting_hole } = req.body;
 
         if (!tournament_id || !group_name) {
             return res.status(400).json({ error: 'Tournament ID and group name are required' });
+        }
+
+        // Validate starting_hole
+        const startingHole = parseInt(starting_hole) || 1;
+        if (startingHole < 1 || startingHole > 18) {
+            return res.status(400).json({ error: 'Starting hole must be between 1 and 18' });
         }
 
         // Generate unique code for the group
         const code = await generateUniqueGroupCode();
 
         const result = await runQuery(
-            'INSERT INTO groups (tournament_id, group_name, code) VALUES (?, ?, ?)',
-            [tournament_id, group_name, code]
+            'INSERT INTO groups (tournament_id, group_name, code, starting_hole) VALUES (?, ?, ?, ?)',
+            [tournament_id, group_name, code, startingHole]
         );
 
         const group = await getQuery('SELECT * FROM groups WHERE id = ?', [result.id]);
@@ -38,7 +44,7 @@ router.get('/tournament/:tournamentId', async (req, res) => {
             FROM groups g
             LEFT JOIN players p ON g.id = p.group_id
             WHERE g.tournament_id = ?
-            GROUP BY g.id, g.tournament_id, g.group_name, g.code, g.created_at
+            GROUP BY g.id, g.tournament_id, g.group_name, g.code, g.starting_hole, g.created_at
             ORDER BY g.created_at
         `, [tournamentId]);
 
